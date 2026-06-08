@@ -1201,7 +1201,9 @@ function P5({data,curP}){
       <p>${curP==="Tous"?"Tous les partenaires":curP} · ${os.length} participant${os.length>1?"s":""} · Vue instantanée</p>
     </div>
 
-    <div style=${{marginBottom:14}}>
+    <!-- Sélecteur + fiche individuelle réactive -->
+    <div class="psel-w" style=${{marginBottom:10}}>
+      <label>🔍 Sélectionner un participant (${os.length})</label>
       <${SearchSelect}
         options=${os.map(p=>({
           value:p.Email,
@@ -1213,95 +1215,99 @@ function P5({data,curP}){
       />
     </div>
 
-    <div class="krow">
-      <${KPI} label="👥 Participants" value=${os.length} sub="${osParts.length} partenaire${osParts.length>1?"s":""}" color=${C.purple}/>
-      <${KPI} label="📊 Score moyen" value=${pct(mScore)} sub="Maîtrise globale" color=${C.blue}/>
-      <${KPI} label="🎓 Niveau médian" value=${PLIB[palMoy]} sub="Palier ${palMoy}/3" color=${PCOL[palMoy]}/>
-    </div>
-
-    <div class="g2">
-      <div class="gc">
-        <div class="gt">Répartition des paliers</div>
-        <div class="pal-bar-wrap">
-          ${[0,1,2,3].map(n=>{
-            const nb=os.filter(d=>d.Palier===n).length;
-            const pv=os.length?Math.round(nb/os.length*100):0;
-            return html`<div key=${n} class="pal-bar-row">
-              <span class="pal-bar-label" style=${{color:PCOL[n]}}>${PLIB[n]}</span>
-              <div class="pal-bar-track"><div class="pal-bar-fill" style=${{width:pv+"%",background:PCOL[n]}}/></div>
-              <span class="pal-bar-count" style=${{color:PCOL[n]}}>${nb}</span>
-              <span style=${{fontSize:10,color:"var(--text3)",minWidth:28}}>${pv}%</span>
-            </div>`;
-          })}
-        </div>
+    ${rowOS?html`<div class="gc" style=${{marginBottom:14,borderLeft:"3px solid var(--purple)"}}>
+      <div class="gt">👤 ${nomParticipant(rowOS)}${curP==="Tous"?" · "+rowOS.Partenaire:""}</div>
+      <div class="krow" style=${{marginBottom:10}}>
+        <${KPI} label="📋 Score" value=${rowOS.Score_Global!=null?pct(rowOS.Score_Global):"Non partagé"} sub="Maîtrise globale" color=${rowOS.Score_Global!=null?C.purple:"var(--text3)"}/>
+        <${KPI} label="🎓 Niveau" value=${PLIB[rowOS.Palier]} sub="Palier ${rowOS.Palier}/3" color=${PCOL[rowOS.Palier]}/>
+        ${rowOS.Date_Debut?html`<${KPI} label="📅 Date atelier" value=${fmtDate(rowOS.Date_Debut)} sub=${rowOS.Partenaire} color=${C.blue}/>`:null}
       </div>
-      ${osParts.length>1?html`
+      ${jalons.length?html`<div style=${{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        ${jalons.map(([name,val],i)=>html`<span key=${i} style=${{
+          background:val===true?"rgba(52,211,153,.15)":val===false?"rgba(248,113,113,.15)":"rgba(139,151,176,.15)",
+          color:val===true?C.green:val===false?C.red:"#8b97b0",
+          padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>
+          ${val===true?"✓":val===false?"✗":"?"} ${name}
+        </span>`)}
+      </div>`:null}
+      <div class="ccards">
+        ${compIndiv.map((c,i)=>html`<div key=${i} class="comp-row">
+          <div class="comp-name">${c.name}</div>
+          <div class="comp-bar"><div class="comp-fill" style=${{width:(c.score!=null?c.score:0)+"%",background:c.score!=null?c.color:"var(--bg3)"}}></div></div>
+          <div class="comp-pct" style=${{color:c.score!=null?c.color:"var(--text3)"}}>${c.score!=null?c.score+"%":"—"}</div>
+        </div>`)}
+      </div>
+    </div>`:null}
+
+    <!-- Stats globales du groupe -->
+    <div style=${{borderTop:"1px solid var(--border)",paddingTop:14,marginTop:4}}>
+      <div style=${{fontSize:11,color:"var(--text3)",fontWeight:600,textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>
+        Vue globale — ${os.length} participant${os.length>1?"s":""}
+      </div>
+      <div class="krow">
+        <${KPI} label="👥 Participants" value=${os.length} sub="${osParts.length} partenaire${osParts.length>1?"s":""}" color=${C.purple}/>
+        <${KPI} label="📊 Score moyen" value=${pct(mScore)} sub="Maîtrise globale" color=${C.blue}/>
+        <${KPI} label="🎓 Niveau médian" value=${PLIB[palMoy]} sub="Palier ${palMoy}/3" color=${PCOL[palMoy]}/>
+      </div>
+
+      <div class="g2">
+        <div class="gc">
+          <div class="gt">Répartition des paliers</div>
+          <div class="pal-bar-wrap">
+            ${[0,1,2,3].map(n=>{
+              const nb=os.filter(d=>d.Palier===n).length;
+              const pv=os.length?Math.round(nb/os.length*100):0;
+              return html`<div key=${n} class="pal-bar-row">
+                <span class="pal-bar-label" style=${{color:PCOL[n]}}>${PLIB[n]}</span>
+                <div class="pal-bar-track"><div class="pal-bar-fill" style=${{width:pv+"%",background:PCOL[n]}}/></div>
+                <span class="pal-bar-count" style=${{color:PCOL[n]}}>${nb}</span>
+                <span style=${{fontSize:10,color:"var(--text3)",minWidth:28}}>${pv}%</span>
+              </div>`;
+            })}
+          </div>
+        </div>
+        ${osParts.length>1?html`
+        <div class="gc">
+          <div class="gt">Score moyen par partenaire (%)</div>
+          <${ResponsiveContainer} width="100%" height=${200}>
+            <${BarChart} data=${barParts} margin=${{top:4,right:8,left:-20,bottom:0}}>
+              <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
+              <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}}/>
+              <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
+              <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
+              <${Bar} dataKey="Score" fill=${C.purple} radius=${[4,4,0,0]} maxBarSize=${30}>
+                <${LabelList} dataKey="Score" position="top" formatter=${v=>v+"%"} style=${{fill:"#a78bfa",fontSize:11,fontWeight:600}}/>
+              <//>
+            <//>
+          <//>
+        </div>`:html`
+        <div class="gc">
+          <div class="gt">Radar des 5 domaines</div>
+          <${ResponsiveContainer} width="100%" height=${200}>
+            <${RadarChart} data=${radarData}>
+              <${PolarGrid} stroke="#2a3347"/>
+              <${PolarAngleAxis} dataKey="subject" tick=${{fill:"#8b97b0",fontSize:9}}/>
+              <${Radar} name="Score" dataKey="Score" stroke=${C.purple} fill=${C.purple} fillOpacity=${0.25}/>
+              <${Tooltip} content=${Tip}/>
+            <//>
+          <//>
+        </div>`}
+      </div>
+
       <div class="gc">
-        <div class="gt">Score moyen par partenaire (%)</div>
-        <${ResponsiveContainer} width="100%" height=${200}>
-          <${BarChart} data=${barParts} margin=${{top:4,right:8,left:-20,bottom:0}}>
-            <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
-            <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}}/>
-            <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
+        <div class="gt">Score moyen par compétence (%)</div>
+        <${ResponsiveContainer} width="100%" height=${240}>
+          <${BarChart} data=${compData} layout="vertical" margin=${{top:4,right:44,left:74,bottom:0}}>
+            <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" horizontal=${false}/>
+            <${XAxis} type="number" domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
+            <${YAxis} type="category" dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}} width=${74}/>
             <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
-            <${Bar} dataKey="Score" fill=${C.purple} radius=${[4,4,0,0]} maxBarSize=${30}>
-              <${LabelList} dataKey="Score" position="top" formatter=${v=>v+"%"} style=${{fill:"#a78bfa",fontSize:11,fontWeight:600}}/>
+            <${Bar} dataKey="Score" fill=${C.purple} radius=${[0,4,4,0]} maxBarSize=${16}>
+              <${LabelList} dataKey="Score" position="right" formatter=${v=>v+"%"} style=${{fill:"#8b97b0",fontSize:9}}/>
             <//>
           <//>
         <//>
-      </div>`:html`
-      <div class="gc">
-        <div class="gt">Radar des 5 domaines</div>
-        <${ResponsiveContainer} width="100%" height=${200}>
-          <${RadarChart} data=${radarData}>
-            <${PolarGrid} stroke="#2a3347"/>
-            <${PolarAngleAxis} dataKey="subject" tick=${{fill:"#8b97b0",fontSize:9}}/>
-            <${Radar} name="Score" dataKey="Score" stroke=${C.purple} fill=${C.purple} fillOpacity=${0.25}/>
-            <${Tooltip} content=${Tip}/>
-          <//>
-        <//>
-      </div>`}
-    </div>
-
-    <div class="gc" style=${{marginBottom:12}}>
-      <div class="gt">Score moyen par compétence (%)</div>
-      <${ResponsiveContainer} width="100%" height=${240}>
-        <${BarChart} data=${compData} layout="vertical" margin=${{top:4,right:44,left:74,bottom:0}}>
-          <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" horizontal=${false}/>
-          <${XAxis} type="number" domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
-          <${YAxis} type="category" dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}} width=${74}/>
-          <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
-          <${Bar} dataKey="Score" fill=${C.purple} radius=${[0,4,4,0]} maxBarSize=${16}>
-            <${LabelList} dataKey="Score" position="right" formatter=${v=>v+"%"} style=${{fill:"#8b97b0",fontSize:9}}/>
-          <//>
-        <//>
-      <//>
-    </div>
-
-    <div class="gc">
-      <div class="gt">Fiche individuelle — ${rowOS?nomParticipant(rowOS):""}</div>
-      ${rowOS&&html`<div>
-        <div class="krow" style=${{marginBottom:12}}>
-          <${KPI} label="📋 Score" value=${rowOS.Score_Global!=null?pct(rowOS.Score_Global):"Non partagé"} sub="Palier ${rowOS.Palier}/3" color=${rowOS.Score_Global!=null?C.purple:"var(--text3)"}/>
-          <${KPI} label="🎓 Niveau" value=${PLIB[rowOS.Palier]} color=${PCOL[rowOS.Palier]}/>
-          ${rowOS.Date_Debut&&html`<${KPI} label="📅 Date atelier" value=${fmtDate(rowOS.Date_Debut)} sub=${rowOS.Partenaire} color=${C.blue}/>`}
-        </div>
-        ${jalons.length?html`<div style=${{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-          ${jalons.map(([name,val],i)=>html`<span key=${i} style=${{
-            background:val===true?"rgba(52,211,153,.15)":val===false?"rgba(248,113,113,.15)":"rgba(139,151,176,.15)",
-            color:val===true?C.green:val===false?C.red:"#8b97b0",
-            padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>
-            ${val===true?"✓":val===false?"✗":"?"} ${name}
-          </span>`)}
-        </div>`:null}
-        <div class="ccards">
-          ${compIndiv.map((c,i)=>html`<div key=${i} class="comp-row">
-            <div class="comp-name">${c.name}</div>
-            <div class="comp-bar"><div class="comp-fill" style=${{width:(c.score!=null?c.score:0)+"%",background:c.score!=null?c.color:"var(--bg3)"}}></div></div>
-            <div class="comp-pct" style=${{color:c.score!=null?c.color:"var(--text3)"}}>${c.score!=null?c.score+"%":"—"}</div>
-          </div>`)}
-        </div>
-      </div>`}
+      </div>
     </div>
   </div>`;
 }
