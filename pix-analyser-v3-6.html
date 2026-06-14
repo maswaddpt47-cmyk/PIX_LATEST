@@ -1008,8 +1008,9 @@ function P4({data,curP}){
     </div>
     ${rowE&&html`<div>
       <div class="krow">
-        <${KPI} label="📋 Score T1" value=${pct(rowE.Score_Global)} sub="Palier ${rowE.Palier}/3 · ${PLIB[rowE.Palier]}" color=${PCOL[rowE.Palier]}/>
+        <${KPI} label="📋 Score T1" value=${pct(rowE.Score_Global)} sub=${"Palier "+rowE.Palier+"/3 · "+PLIB[rowE.Palier]+(rowE.Partenaire?" · "+rowE.Partenaire:"")} color=${PCOL[rowE.Palier]}/>
         <${KPI} label="🏁 Score T2" value=${rowS?pct(rowS.Score_Global):"—"} sub=${rowS?"Palier "+rowS.Palier+"/3 · "+PLIB[rowS.Palier]:"Pas encore"} color=${rowS?PCOL[rowS.Palier]:C.blue}/>
+        ${rowS&&rowE.Palier!==rowS.Palier?html`<${KPI} label="🎓 Palier" value=${"P"+rowE.Palier+" → P"+rowS.Palier} sub=${rowS.Palier>rowE.Palier?"Progression de palier ✓":"Régression de palier"} color=${rowS.Palier>rowE.Palier?C.green:C.red}/>`:null}
         <${KPI} label="📈 Progression" value=${prog!=null?(prog>0?"+":"")+prog+" pts":"—"} sub="T2 − T1" color=${prog!=null&&prog>0?C.green:C.red}/>
         ${rowE.NbSessions>1&&html`<${KPI} label="🔄 Sessions" value=${rowE.NbSessions} sub=${rowE.Duree!=null?"sur "+rowE.Duree+" jours":""} color=${C.orange}/>`}
         <${KPI} label="📅 Date T1" value=${fmtDate(rowE.Date_Debut)} sub=${rowS?"T2 : "+fmtDate(rowS.Date_Debut):""} color=${C.blue}/>
