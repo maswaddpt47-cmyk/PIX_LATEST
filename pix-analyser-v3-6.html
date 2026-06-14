@@ -665,8 +665,8 @@ function processFiles(files){
 
     if(isOS){
       f.rows.forEach(row=>{
-        if(!row.Email) return;
-        const key=row.Email+"|"+partenaire;
+        if(!row.Email||!row.Email.trim()) return;
+        const key=row.Email.trim()+"|"+partenaire;
         const existing=osByKey[key];
         if(!existing){
           osByKey[key]={...row,TypeCampagne:"OneShot",Mode:"OneShot",
@@ -697,7 +697,7 @@ function processFiles(files){
         let duree=null;
         if(t1&&t2){
           const d1=parseDate(t1.Date_Debut),d2=parseDate(t2.Date_Debut);
-          if(d1&&d2) duree=Math.round((d2-d1)/(1000*60*60*24));
+          if(d1&&d2){const diff=Math.round((d2-d1)/(1000*60*60*24));if(!isNaN(diff)&&diff>=0)duree=diff;}
         }
         cycleData.push({...t1,TypeCampagne:"Entrée",Mode:"Cycle",Partenaire:partenaire,NbSessions:sessions.length,Duree:duree});
         if(t2) cycleData.push({...t2,TypeCampagne:"Sortie",Mode:"Cycle",Partenaire:partenaire,NbSessions:sessions.length,Duree:duree});
