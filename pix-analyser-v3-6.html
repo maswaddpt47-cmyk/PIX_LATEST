@@ -984,7 +984,7 @@ function P4({data,curP}){
   }));
   const prog=rowE&&rowS?r100(rowS.Score_Global-rowE.Score_Global):null;
   const nom=nomParticipant(rowE);
-  const jalons=rowE?Object.entries(rowE.Jalons||{}):[]; 
+  const jalons=Object.entries({...(rowE?.Jalons||{}),...(rowS?.Jalons||{})});
 
   return html`<div>
     <div class="ph"><h2>Fiche individuelle</h2><p>Profil complet d'un participant</p></div>
@@ -1006,15 +1006,16 @@ function P4({data,curP}){
       </div>
 
       ${jalons.length?html`<div class="gc" style=${{marginBottom:12}}>
-        <div class="gt">Jalons</div>
+        <div class="gt">Jalons${rowS?" (T2)":""}</div>
         <div style=${{display:"flex",gap:8,flexWrap:"wrap",paddingTop:4}}>
-          ${jalons.map(([name,val],i)=>html`<span key=${i} style=${{
+          ${jalons.map(([name,val],i)=>html`<span key=${i} title=${val===null?"Non renseigné dans le CSV":val===true?"Obtenu":"Non obtenu"} style=${{
             background:val===true?"rgba(52,211,153,.15)":val===false?"rgba(248,113,113,.15)":"rgba(139,151,176,.15)",
             color:val===true?C.green:val===false?C.red:"#8b97b0",
-            padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>
+            padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"default"}}>
             ${val===true?"✓":val===false?"✗":"?"} ${name}
           </span>`)}
         </div>
+        <div style=${{fontSize:10,color:"var(--text3)",marginTop:6}}>? = non renseigné dans l'export PIX · survol pour détail</div>
       </div>`:null}
 
       <div class="gc" style=${{marginBottom:12}}>
