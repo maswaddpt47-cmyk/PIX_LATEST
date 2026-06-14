@@ -602,7 +602,7 @@ function parseCSV(text){
     const cells=parseLine(line);
     if(cells.length<3) return null;
     const get=k=>colIdx[k]!=null?(cells[colIdx[k]]||"").replace(/^"|"$/g,"").trim():"";
-    const num=v=>{const n=parseFloat(v.replace(",","."));return isNaN(n)?null:n;};
+    const num=v=>{const n=parseFloat(v.replace(/\s/g,"").replace(",",".").replace(/%$/,""));return isNaN(n)?null:n;};
     const bool=v=>{const s=(v||"").toLowerCase();return s==="oui"||s==="o"||s==="true"?true:s==="non"||s==="n"||s==="false"?false:null;};
     let email=get("Email");
     let nom=get("Nom"),prenom=get("Prenom");
@@ -1215,7 +1215,11 @@ function App(){
       if(!f.name.match(/\.csv$/i)) return;
       const reader=new FileReader();
       reader.onload=e=>{
-        const rows=parseCSV(e.target.result);
+        const buf=e.target.result;
+        let text;
+        try{text=new TextDecoder("utf-8",{fatal:true}).decode(buf);}
+        catch(_){text=new TextDecoder("iso-8859-1").decode(buf);}
+        const rows=parseCSV(text);
         const emails=new Set(rows.map(r=>r.Email));
         const avecT2=[...emails].filter(em=>rows.filter(r=>r.Email===em).length>1);
         setFiles(prev=>[...prev,{
@@ -1224,7 +1228,7 @@ function App(){
           rows,nEmails:emails.size,nT2:avecT2.length,
         }]);
       };
-      reader.readAsText(f,"utf-8");
+      reader.readAsArrayBuffer(f);
     });
   },[]);
 
