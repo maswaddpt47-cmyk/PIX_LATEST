@@ -665,7 +665,7 @@ function processFiles(files){
   const osByKey={};
 
   files.forEach(f=>{
-    const partenaire=f.partenaire||"(sans nom)";
+    const partenaire=(f.partenaire||"").trim()||"(sans nom)";
     const isOS=f.mode==="oneshot";
 
     if(isOS){
@@ -722,7 +722,8 @@ const median=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y);const 
 const fmtDate=str=>{const d=parseDate(str);return d?d.toLocaleDateString("fr-FR"):str||"—";};
 
 function filt(data,curP,type){
-  return data.filter(d=>(curP==="Tous"||d.Partenaire===curP)&&(type?d.TypeCampagne===type:true));
+  const norm=s=>(s||"").trim();
+  return data.filter(d=>(curP==="Tous"||norm(d.Partenaire)===norm(curP))&&(type?d.TypeCampagne===type:true));
 }
 
 function nomParticipant(row){
@@ -1072,11 +1073,12 @@ function P4({data,curP}){
 // ── PAGE 5 — One Shot ────────────────────────────────────────────────────
 function P5({data,curP}){
   const osAll=data.filter(d=>d.Mode==="OneShot");
-  const os=osAll.filter(d=>curP==="Tous"||d.Partenaire===curP);
+  const normP=s=>(s||"").trim();
+  const os=osAll.filter(d=>curP==="Tous"||normP(d.Partenaire)===normP(curP));
   const osAvecScore=os.filter(d=>d.Score_Global!=null);
   const [email,setEmail]=useState(osAvecScore[0]?.Email||os[0]?.Email||"");
   useEffect(()=>{
-    const osFilt=data.filter(d=>d.Mode==="OneShot"&&(curP==="Tous"||d.Partenaire===curP));
+    const osFilt=data.filter(d=>d.Mode==="OneShot"&&(curP==="Tous"||normP(d.Partenaire)===normP(curP)));
     const osFiltScore=osFilt.filter(d=>d.Score_Global!=null);
     const target=osFiltScore.length?osFiltScore:osFilt;
     if(target.length&&!target.find(p=>p.Email===email)) setEmail(target[0]?.Email||"");
@@ -1331,7 +1333,7 @@ function App(){
     return()=>{el.removeEventListener("dragover",over);el.removeEventListener("dragleave",leave);el.removeEventListener("drop",drop);};
   },[handleFiles]);
 
-  const partenaires=["Tous",...new Set(data.map(d=>d.Partenaire))];
+  const partenaires=["Tous",...new Set(data.map(d=>(d.Partenaire||"").trim()))];
   const hasCycle=data.some(d=>d.Mode==="Cycle");
   const hasOS=data.some(d=>d.Mode==="OneShot");
 
@@ -1402,7 +1404,7 @@ function App(){
       <span class="d-sub">${subtitle}</span>
       <div class="d-right">
         <select class="d-sel" value=${curP} onChange=${e=>setCurP(e.target.value)}>
-          ${partenaires.map(p=>html`<option key=${p}>${p}</option>`)}
+          ${partenaires.map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
         </select>
         <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
         <button class="d-btn" onClick=${exportJSON}>💾 JSON</button>
