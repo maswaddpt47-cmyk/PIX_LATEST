@@ -14,20 +14,7 @@ Objectif : ne jamais partir d'une version obsolète et écraser des modification
 
 ---
 
-## 2. Backup daté avant toute modification
-
-Avant de toucher un fichier existant, créer une copie datée :
-
-```
-Format : nomfichier.backup.YYYYMMDD-HHMM.ext
-Exemple : pix-analyser-v3-6.backup.20260614-1120.html
-```
-
-Ce backup est commité **séparément** (commit `chore: backup ...`) avant la modification, pour permettre un retour arrière facile.
-
----
-
-## 3. Un commit par modification logique
+## 2. Un commit par modification logique
 
 Chaque changement = un commit distinct avec préfixe explicite :
 
@@ -36,12 +23,14 @@ Chaque changement = un commit distinct avec préfixe explicite :
 | `feat:` | Nouvelle fonctionnalité |
 | `fix:` | Correction de bug |
 | `refactor:` | Restructuration sans changement de comportement |
-| `chore:` | Backup, nettoyage, tâche technique |
+| `chore:` | Nettoyage, tâche technique |
 | `style:` | Modifications CSS / UI sans impact fonctionnel |
+
+Git fait office d'historique et de filet de sécurité — pas besoin de backups manuels datés, chaque commit est déjà un point de retour.
 
 ---
 
-## 4. Branche de travail
+## 3. Branche de travail
 
 Toutes les modifications Claude se font sur la branche désignée en début de session (`claude/...`), jamais directement sur `main` sans autorisation explicite de l'utilisateur.
 
@@ -51,10 +40,8 @@ Toutes les modifications Claude se font sur la branche désignée en début de s
 
 ```
 1. git pull origin main
-2. Créer backup daté du fichier ciblé
-3. Commit chore: backup ...
-4. Appliquer les modifications
-5. Commit feat/fix/refactor: <description claire>
-6. Répéter 4-5 pour chaque modification logique
-7. Push
+2. Appliquer les modifications
+3. Commit feat/fix/refactor: <description claire>
+4. Répéter 2-3 pour chaque modification logique
+5. Push
 ```
