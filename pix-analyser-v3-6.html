@@ -807,6 +807,7 @@ const pct=v=>v!=null?Math.round(v*100)+"%":"—";
 const r100=v=>v!=null?Math.round(v*100):0;
 const avg=a=>a.length?a.reduce((s,b)=>s+b,0)/a.length:0;
 const nn=a=>a.filter(v=>v!=null);
+const safeAvg=(arr,f)=>{const v=nn(arr.map(x=>x[f]));return v.length?r100(avg(v)):null;};
 const median=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
 const fmtDate=str=>{const d=parseDate(str);return d?d.toLocaleDateString("fr-FR"):str||"—";};
 
@@ -1019,12 +1020,11 @@ function P1({data,curP}){
 // ── PAGE 2 — Compétences ─────────────────────────────────────────────────
 function P2({data,curP}){
   const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
-  const compData=COMP_FIELDS.map(({c,f})=>({
-    name:c,
-    "T1":e1.length?r100(avg(nn(e1.map(d=>d[f])))):0,
-    "T2":e2.length?r100(avg(nn(e2.map(d=>d[f])))):0,
-    prog:e2.length?r100(avg(nn(e2.map(d=>d[f]))))-r100(avg(nn(e1.map(d=>d[f])))):0,
-  }));
+  const compData=COMP_FIELDS.map(({c,f})=>{
+    const t1=safeAvg(e1,f)??0;
+    const t2=safeAvg(e2,f);
+    return {name:c,"T1":t1,"T2":t2,prog:t2!=null?t2-t1:null};
+  });
   return html`<div>
     <div class="ph">
       <div style=${{display:"flex",alignItems:"center",gap:4}}>
@@ -1049,10 +1049,10 @@ function P2({data,curP}){
     </div>
     <div class="g2">
       <div class="ccards">
-        ${compData.map((c,i)=>html`<div key=${i} class="ccard" style=${{borderLeft:"3px solid "+(c.prog>10?C.green:C.blue)}}>
+        ${compData.map((c,i)=>html`<div key=${i} class="ccard" style=${{borderLeft:"3px solid "+(c.prog!=null&&c.prog>10?C.green:C.blue)}}>
           <div class="cn">${c.name}</div>
-          <div class="cv" style=${{color:e2.length?C.green:"var(--text3)"}}>${e2.length?c.T2+"%":"—"}</div>
-          <div class="cs">vs ${c.T1}% T1 ${e2.length?html`<span style=${{color:c.prog>0?C.green:c.prog<0?C.red:"#8b97b0",fontWeight:600}}>${c.prog>0?"+":""}${c.prog} pts</span>`:" (pas de T2)"}</div>
+          <div class="cv" style=${{color:c.T2!=null?C.green:"var(--text3)"}}>${c.T2!=null?c.T2+"%":"—"}</div>
+          <div class="cs">vs ${c.T1}% T1 ${c.T2!=null?html`<span style=${{color:c.prog>0?C.green:c.prog<0?C.red:"#8b97b0",fontWeight:600}}>${c.prog>0?"+":""}${c.prog} pts</span>`:" (pas de T2)"}</div>
         </div>`)}
       </div>
       <div class="gc">
@@ -1076,12 +1076,12 @@ function P2({data,curP}){
 // ── PAGE 3 — Domaines ────────────────────────────────────────────────────
 function P3({data,curP}){
   const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
-  const domData=DOM_FIELDS.map(({d,f})=>({
-    name:d,
-    "T1":e1.length?r100(avg(nn(e1.map(x=>x[f])))):0,
-    "T2":e2.length?r100(avg(nn(e2.map(x=>x[f])))):0,
-  }));
-  const radarData=domData.map(d=>({subject:d.name,"T1 Entrée":d["T1"],"T2 Sortie":d["T2"]}));
+  const domData=DOM_FIELDS.map(({d,f})=>{
+    const t1=safeAvg(e1,f)??0;
+    const t2=safeAvg(e2,f);
+    return {name:d,"T1":t1,"T2":t2};
+  });
+  const radarData=domData.map(d=>({subject:d.name,"T1 Entrée":d["T1"],"T2 Sortie":d["T2"]??undefined}));
   return html`<div>
     <div class="ph">
       <div style=${{display:"flex",alignItems:"center",gap:4}}>
@@ -1125,14 +1125,14 @@ function P3({data,curP}){
       <table class="dt">
         <thead><tr><th>Domaine</th><th>Score T1</th><th>Score T2</th><th>Progression</th><th>Tendance</th></tr></thead>
         <tbody>${domData.map((d,i)=>{
-          const pg=d["T2"]-d["T1"];
-          const cls=pg>0?"bg":pg<0?"br":"bm";
+          const pg=d["T2"]!=null?d["T2"]-d["T1"]:null;
+          const cls=pg!=null?(pg>0?"bg":pg<0?"br":"bm"):"bm";
           return html`<tr key=${i}>
             <td style=${{fontWeight:500}}>${d.name}</td>
             <td style=${{color:C.yellow,fontWeight:600}}>${d["T1"]}%</td>
-            <td style=${{color:C.green,fontWeight:600}}>${e2.length?d["T2"]+"%":"—"}</td>
-            <td>${e2.length?html`<span class=${"badge "+cls}>${pg>0?"+":""}${pg} pts</span>`:"—"}</td>
-            <td style=${{fontSize:16,fontWeight:700,color:pg>0?C.green:pg<0?C.red:"#4a566a"}}>${pg>0?"▲":pg<0?"▼":"="}</td>
+            <td style=${{color:d["T2"]!=null?C.green:"var(--text3)",fontWeight:600}}>${d["T2"]!=null?d["T2"]+"%":"—"}</td>
+            <td>${pg!=null?html`<span class=${"badge "+cls}>${pg>0?"+":""}${pg} pts</span>`:"—"}</td>
+            <td style=${{fontSize:16,fontWeight:700,color:pg!=null?(pg>0?C.green:pg<0?C.red:"#4a566a"):"#4a566a"}}>${pg!=null?(pg>0?"▲":pg<0?"▼":"="):"—"}</td>
           </tr>`;
         })}</tbody>
       </table>
