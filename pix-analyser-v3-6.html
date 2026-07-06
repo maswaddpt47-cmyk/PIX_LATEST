@@ -159,6 +159,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .comp-pct{width:38px;text-align:right;font-weight:600}
 
 .print-only{display:none}
+.toast{position:fixed;top:16px;right:16px;z-index:9999;padding:10px 16px;border-radius:8px;
+  font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4);
+  display:flex;align-items:center;gap:8px;max-width:320px;animation:toastin .2s ease;pointer-events:none}
+.toast.ok{background:#064e3b;border:1px solid #34d399;color:#34d399}
+.toast.err{background:#450a0a;border:1px solid #f87171;color:#f87171}
+.toast.warn{background:#451a03;border:1px solid #fbbf24;color:#fbbf24}
+@keyframes toastin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{background:#fff!important;color:#000!important}
@@ -1257,7 +1264,14 @@ function App(){
   const [curP,setCurP]=useState("Tous");
   const [tab,setTab]=useState("t1");
   const [subtitle,setSubtitle]=useState("");
+  const [toast,setToast]=useState(null);
   const dropRef=useRef(null);
+  const toastRef=useRef(null);
+  const showToast=(msg,type="ok")=>{
+    clearTimeout(toastRef.current);
+    setToast({msg,type});
+    toastRef.current=setTimeout(()=>setToast(null),3500);
+  };
 
   const handleFiles=useCallback(fileList=>{
     Array.from(fileList).forEach(f=>{
@@ -1288,7 +1302,7 @@ function App(){
 
   const generate=()=>{
     const d=processFiles(files);
-    if(!d.length){alert("Aucune donnée valide.");return;}
+    if(!d.length){showToast("Aucune donnée valide dans les fichiers chargés.","err");return;}
     setData(d);
     const nbT1=d.filter(r=>r.TypeCampagne==="Entrée").length;
     const nbT2=d.filter(r=>r.TypeCampagne==="Sortie").length;
@@ -1303,7 +1317,7 @@ function App(){
   };
 
   const exportJSON=()=>{
-    if(!data.length){alert("Aucune donnée.");return;}
+    if(!data.length){showToast("Aucune donnée à exporter.","err");return;}
     const parts=[...new Set(data.map(d=>d.Partenaire))];
     const nom=curP==="Tous"?parts.join("+"):curP;
     const payload={version:"PIX_Analyser_v3",exported:new Date().toISOString(),
@@ -1328,7 +1342,7 @@ function App(){
       reader.onload=ev=>{
         try{
           const p=JSON.parse(ev.target.result);
-          if(!p.data){alert("Fichier JSON invalide.");return;}
+          if(!p.data||!Array.isArray(p.data)){showToast("Fichier JSON invalide ou corrompu.","err");return;}
           setData(p.data);
           setFiles((p.fichiers||[]).map(f=>({...f,id:Date.now()+Math.random(),rows:[],nEmails:0,nT2:0})));
           const exported=p.exported?new Date(p.exported).toLocaleDateString("fr-FR"):"?";
@@ -1340,7 +1354,7 @@ function App(){
           setCurP("Tous");
           setTab(p.data.some(r=>r.Mode==="Cycle")?"t1":"t5");
           setScreen("dash");
-        }catch(err){alert("Erreur JSON : "+err.message);}
+        }catch(err){showToast("Erreur JSON : "+err.message,"err");}
       };
       reader.readAsText(f);
     };
@@ -1461,7 +1475,8 @@ function App(){
         ${id==="t5"&&html`<${P5} data=${data} curP=${curP}/>`}
       </div>`)}
     </div>
-  </div>`;
+  </div>
+  ${toast?html`<div class=${"toast "+toast.type}>${toast.type==="err"?"✗":toast.type==="warn"?"⚠":"✓"} ${toast.msg}</div>`:null}`;
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
