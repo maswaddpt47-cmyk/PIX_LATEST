@@ -162,6 +162,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .comp-pct{width:38px;text-align:right;font-weight:600}
 
 .print-only{display:none}
+.srch{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--text);
+  font-size:12px;padding:6px 10px;width:100%;max-width:440px;font-family:inherit;outline:none;margin-bottom:8px}
+.srch:focus{border-color:var(--blue)}
+.tbl-toggle{background:none;border:1px solid var(--border2);border-radius:7px;color:var(--text2);
+  font-size:11px;padding:5px 10px;cursor:pointer;font-family:inherit;margin-bottom:10px}
+.tbl-toggle:hover{border-color:var(--blue);color:var(--blue)}
+.mob-menu-wrap{position:relative;display:none}
+.mob-menu-btn{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;
+  color:var(--text2);font-size:14px;padding:4px 10px;cursor:pointer;font-family:inherit;line-height:1}
+.mob-menu-btn:hover{border-color:var(--blue);color:var(--blue)}
+.mob-menu-drop{position:absolute;top:calc(100% + 6px);right:0;background:var(--bg2);
+  border:1px solid var(--border2);border-radius:10px;padding:6px;z-index:100;
+  display:flex;flex-direction:column;gap:4px;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.mob-menu-drop .d-btn{width:100%;text-align:left;padding:7px 10px;font-size:12px}
+@media(max-width:640px){
+  .d-right .d-btn,.d-right .d-sel{display:none}
+  .mob-menu-wrap{display:block}
+}
 .toast{position:fixed;top:16px;right:16px;z-index:9999;padding:10px 16px;border-radius:8px;
   font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4);
   display:flex;align-items:center;gap:8px;max-width:320px;animation:toastin .2s ease;pointer-events:none}
@@ -1284,6 +1302,23 @@ function P5({data,curP}){
   </div>`;
 }
 
+// ── ERROR BOUNDARY ────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component{
+  constructor(p){super(p);this.state={err:null};}
+  static getDerivedStateFromError(e){return{err:e};}
+  componentDidCatch(e,info){console.error("PIX Analyser error:",e,info);}
+  render(){
+    if(this.state.err) return React.createElement("div",{style:{textAlign:"center",padding:60,color:"#f87171"}},
+      React.createElement("div",{style:{fontSize:40,marginBottom:12}},"⚠️"),
+      React.createElement("div",{style:{fontWeight:700,marginBottom:8}},"Erreur d'affichage"),
+      React.createElement("div",{style:{fontSize:12,color:"#9aa5b8",marginBottom:16}},this.state.err.message),
+      React.createElement("button",{style:{background:"#1e2535",border:"1px solid #3a4560",borderRadius:8,color:"#e8edf5",padding:"8px 16px",cursor:"pointer",fontSize:12},
+        onClick:()=>this.setState({err:null})},"Réessayer")
+    );
+    return this.props.children;
+  }
+}
+
 // ── APP ───────────────────────────────────────────────────────────────────
 function App(){
   const [screen,setScreen]=useState("import");
@@ -1294,12 +1329,51 @@ function App(){
   const [subtitle,setSubtitle]=useState("");
   const [toast,setToast]=useState(null);
   const [loading,setLoading]=useState(false);
+  const [mobMenu,setMobMenu]=useState(false);
   const dropRef=useRef(null);
+  const dctRef=useRef(null);
   const toastRef=useRef(null);
+  const touchRef=useRef({});
   const showToast=(msg,type="ok")=>{
     clearTimeout(toastRef.current);
     setToast({msg,type});
     toastRef.current=setTimeout(()=>setToast(null),3500);
+  };
+
+  // localStorage auto-save / restore
+  useEffect(()=>{
+    if(data.length){
+      try{localStorage.setItem("pix_v3",JSON.stringify({data,subtitle,curP}));}catch(_){}
+    }
+  },[data,subtitle,curP]);
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem("pix_v3");
+      if(saved){
+        const p=JSON.parse(saved);
+        if(p.data?.length){
+          setData(p.data);
+          setSubtitle((p.subtitle||"")+" · Session restaurée");
+          setCurP(p.curP||"Tous");
+          setTab(p.data.some(r=>r.Mode==="Cycle")?"t1":"t5");
+          setScreen("dash");
+          showToast("Session précédente restaurée automatiquement","ok");
+        }
+      }
+    }catch(_){}
+  },[]);
+
+  // Swipe entre onglets
+  const onTouchStart=e=>{touchRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
+  const onTouchEnd=e=>{
+    const dx=e.changedTouches[0].clientX-touchRef.current.x;
+    const dy=e.changedTouches[0].clientY-(touchRef.current.y||0);
+    if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){
+      const ids=tabs.map(([id])=>id);
+      const ci=ids.indexOf(tab);
+      if(dx<0&&ci<ids.length-1) setTab(ids[ci+1]);
+      if(dx>0&&ci>0) setTab(ids[ci-1]);
+    }
   };
 
   const handleFiles=useCallback(fileList=>{
@@ -1392,6 +1466,24 @@ function App(){
       reader.readAsText(f);
     };
     input.click();
+  };
+
+  const exportCSV=()=>{
+    if(!data.length){showToast("Aucune donnée à exporter.","err");return;}
+    const esc=v=>{const s=v==null?"":String(v);return s.includes(",")||s.includes('"')||s.includes("\n")?'"'+s.replace(/"/g,'""')+'"':s;};
+    const headers=["Email","Prénom","Nom","Partenaire","Mode","TypeCampagne","Score_%","Palier","Date_Debut","NbSessions","Durée_jours",...COMP_FIELDS.map(c=>c.c),...DOM_FIELDS.map(d=>d.d)];
+    const rows=data.map(d=>[
+      d.Email,d.Prenom||"",d.Nom||"",d.Partenaire,d.Mode,d.TypeCampagne,
+      d.Score_Global!=null?Math.round(d.Score_Global*100):"",d.Palier||"",d.Date_Debut||"",d.NbSessions||"",d.Duree!=null?d.Duree:"",
+      ...COMP_FIELDS.map(({f})=>d[f]!=null?Math.round(d[f]*100):""),
+      ...DOM_FIELDS.map(({f})=>d[f]!=null?Math.round(d[f]*100):""),
+    ].map(esc).join(","));
+    const csv="﻿"+[headers.join(","),...rows].join("\r\n");
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    a.download=`pix_${curP==="Tous"?"tous":curP}_export.csv`;
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    showToast("Export CSV téléchargé ✓","ok");
   };
 
   const printDash=()=>{
@@ -1496,9 +1588,23 @@ function App(){
           ${partenaires.map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
         </select>
         <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
+        <button class="d-btn" onClick=${exportCSV}>📊 CSV</button>
         <button class="d-btn" onClick=${exportJSON}>💾 JSON</button>
         <button class="d-btn" onClick=${importJSON}>📂 Import</button>
-        <button class="d-btn" onClick=${()=>{if(confirm("Nouvelle analyse ? Les données actuelles seront perdues.")){setFiles([]);setData([]);setScreen("import");}}}>← Nouvelle</button>
+        <button class="d-btn" onClick=${()=>{if(confirm("Nouvelle analyse ? Les données actuelles seront perdues.")){setFiles([]);setData([]);localStorage.removeItem("pix_v3");setScreen("import");}}}>← Nouvelle</button>
+        <div class="mob-menu-wrap">
+          <button class="mob-menu-btn" onClick=${()=>setMobMenu(v=>!v)}>⋯</button>
+          ${mobMenu?html`<div class="mob-menu-drop" onClick=${()=>setMobMenu(false)}>
+            <select class="d-sel" style=${{width:"100%",marginBottom:4}} value=${curP} onChange=${e=>setCurP(e.target.value)}>
+              ${partenaires.map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
+            </select>
+            <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
+            <button class="d-btn" onClick=${exportCSV}>📊 Export CSV</button>
+            <button class="d-btn" onClick=${exportJSON}>💾 Export JSON</button>
+            <button class="d-btn" onClick=${importJSON}>📂 Import JSON</button>
+            <button class="d-btn" onClick=${()=>{if(confirm("Nouvelle analyse ?")){setFiles([]);setData([]);localStorage.removeItem("pix_v3");setScreen("import");}}}>← Nouvelle analyse</button>
+          </div>`:null}
+        </div>
       </div>
     </div>
     <div class="dtabs">
@@ -1506,13 +1612,15 @@ function App(){
         class=${"dtab"+(tab===id?" on":"")+(id==="t5"?" os":"")}
         onClick=${()=>setTab(id)}>${label}</button>`)}
     </div>
-    <div class="dct">
+    <div class="dct" ref=${dctRef} onTouchStart=${onTouchStart} onTouchEnd=${onTouchEnd}>
       ${tabs.map(([id])=>html`<div key=${id} class="pagesec" style=${{display:tab===id?"block":"none"}}>
-        ${id==="t1"&&html`<${P1} data=${data} curP=${curP}/>`}
-        ${id==="t2"&&html`<${P2} data=${data} curP=${curP}/>`}
-        ${id==="t3"&&html`<${P3} data=${data} curP=${curP}/>`}
-        ${id==="t4"&&html`<${P4} data=${data} curP=${curP}/>`}
-        ${id==="t5"&&html`<${P5} data=${data} curP=${curP}/>`}
+        <${ErrorBoundary}>
+          ${id==="t1"&&html`<${P1} data=${data} curP=${curP}/>`}
+          ${id==="t2"&&html`<${P2} data=${data} curP=${curP}/>`}
+          ${id==="t3"&&html`<${P3} data=${data} curP=${curP}/>`}
+          ${id==="t4"&&html`<${P4} data=${data} curP=${curP}/>`}
+          ${id==="t5"&&html`<${P5} data=${data} curP=${curP}/>`}
+        <//>
       </div>`)}
     </div>
   </div>
