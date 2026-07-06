@@ -1020,18 +1020,23 @@ function P1({data,curP}){
 // ── PAGE 2 — Compétences ─────────────────────────────────────────────────
 function P2({data,curP}){
   const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
+  const e2Emails=new Set(e2.map(d=>d.Email));
+  const pairedEmails=new Set(e1.map(d=>d.Email).filter(em=>e2Emails.has(em)));
+  const e1p=e1.filter(d=>pairedEmails.has(d.Email));
+  const e2p=e2.filter(d=>pairedEmails.has(d.Email));
   const compData=COMP_FIELDS.map(({c,f})=>{
-    const t1=safeAvg(e1,f)??0;
-    const t2=safeAvg(e2,f);
+    const t1=safeAvg(e1p.length?e1p:e1,f)??0;
+    const t2=safeAvg(e2p,f);
     return {name:c,"T1":t1,"T2":t2,prog:t2!=null?t2-t1:null};
   });
+  const pairNote=e2p.length?e2p.length+" participants appariés T1+T2"+(e1.length>e2p.length?" / "+e1.length+" T1":""):"Aucun T2";
   return html`<div>
     <div class="ph">
       <div style=${{display:"flex",alignItems:"center",gap:4}}>
         <h2 style=${{margin:0}}>Compétences PIX</h2>
         <${InfoTip} title="Légende" items=${TIP_COMP}/>
       </div>
-      <p style=${{marginTop:3}}>7 compétences · T1 vs T2</p>
+      <p style=${{marginTop:3}}>7 compétences · ${pairNote}</p>
     </div>
     <div class="gc" style=${{marginBottom:12}}>
       <div class="gt">Maîtrise par compétence (%)</div>
@@ -1076,19 +1081,24 @@ function P2({data,curP}){
 // ── PAGE 3 — Domaines ────────────────────────────────────────────────────
 function P3({data,curP}){
   const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
+  const e2Emails=new Set(e2.map(d=>d.Email));
+  const pairedEmails=new Set(e1.map(d=>d.Email).filter(em=>e2Emails.has(em)));
+  const e1p=e1.filter(d=>pairedEmails.has(d.Email));
+  const e2p=e2.filter(d=>pairedEmails.has(d.Email));
   const domData=DOM_FIELDS.map(({d,f})=>{
-    const t1=safeAvg(e1,f)??0;
-    const t2=safeAvg(e2,f);
+    const t1=safeAvg(e1p.length?e1p:e1,f)??0;
+    const t2=safeAvg(e2p,f);
     return {name:d,"T1":t1,"T2":t2};
   });
   const radarData=domData.map(d=>({subject:d.name,"T1 Entrée":d["T1"],"T2 Sortie":d["T2"]??undefined}));
+  const pairNote=e2p.length?e2p.length+" participants appariés T1+T2"+(e1.length>e2p.length?" / "+e1.length+" T1":""):"Aucun T2";
   return html`<div>
     <div class="ph">
       <div style=${{display:"flex",alignItems:"center",gap:4}}>
         <h2 style=${{margin:0}}>Domaines PIX</h2>
         <${InfoTip} title="Légende" items=${TIP_DOM}/>
       </div>
-      <p style=${{marginTop:3}}>5 domaines · Progression T1 → T2</p>
+      <p style=${{marginTop:3}}>5 domaines · ${pairNote}</p>
     </div>
     <div class="g2">
       <div class="gc">
