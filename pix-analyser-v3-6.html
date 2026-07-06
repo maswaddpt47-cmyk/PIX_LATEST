@@ -958,13 +958,14 @@ function P1({data,curP}){
           <${BarChart} layout="vertical"
             data=${e2.map(d=>{
               const d1=data.find(x=>x.Email===d.Email&&x.TypeCampagne==="Entrée");
-              return{name:nomParticipant(d).split(" ")[0],fullName:nomParticipant(d),
+              const label=d.Prenom?d.Prenom:d.Nom?d.Nom.split(" ")[0]:(d.Email||"").split("@")[0].slice(0,14);
+              return{name:label,fullName:nomParticipant(d),
                 T1:d1?r100(d1.Score_Global):0,T2:r100(d.Score_Global)};
             })}
-            margin=${{top:4,right:44,left:10,bottom:0}}>
+            margin=${{top:4,right:44,left:4,bottom:0}}>
             <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" horizontal=${false}/>
             <${XAxis} type="number" domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
-            <${YAxis} type="category" dataKey="name" tick=${{fill:"#e8edf5",fontSize:11}} width=${80}/>
+            <${YAxis} type="category" dataKey="name" tick=${{fill:"#e8edf5",fontSize:11}} width=${100}/>
             <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
             <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
             <${Bar} dataKey="T1" fill=${C.yellow} radius=${[0,4,4,0]} maxBarSize=${14}/>
