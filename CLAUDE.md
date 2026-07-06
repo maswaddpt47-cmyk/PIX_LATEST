@@ -32,7 +32,7 @@ Git fait office d'historique et de filet de sécurité — pas besoin de backups
 
 ## 3. Branche de travail
 
-Toutes les modifications Claude se font sur la branche désignée en début de session (`claude/...`), jamais directement sur `main` sans autorisation explicite de l'utilisateur.
+Les modifications Claude se font sur la branche désignée en début de session (`claude/...`). Le push final vers `main` est autorisé sans demande préalable.
 
 ---
 
