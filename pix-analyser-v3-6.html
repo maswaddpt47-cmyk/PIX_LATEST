@@ -161,6 +161,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .comp-fill{height:100%;border-radius:3px}
 .comp-pct{width:38px;text-align:right;font-weight:600}
 
+/* INFO TIP */
+.itip{position:relative;display:inline-flex;vertical-align:middle;margin-left:6px;cursor:pointer}
+.itip-icon{width:16px;height:16px;border-radius:50%;background:var(--bg3);
+  border:1px solid var(--border2);color:var(--text2);font-size:9px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+  user-select:none;transition:all .2s;line-height:1}
+.itip.open .itip-icon{border-color:var(--blue);color:var(--blue);background:rgba(79,142,247,.12)}
+.itip-pop{position:absolute;top:calc(100% + 8px);left:0;background:var(--bg2);
+  border:1px solid var(--border2);border-radius:10px;padding:10px 14px;z-index:500;
+  min-width:210px;max-width:290px;box-shadow:0 8px 24px rgba(0,0,0,.6);
+  font-size:11px;line-height:1.6;color:var(--text);white-space:normal;font-weight:400}
+.itip-ttl{font-weight:700;color:var(--text);margin-bottom:7px;font-size:12px;
+  border-bottom:1px solid var(--border);padding-bottom:5px}
+.itip-row{display:flex;gap:7px;margin-bottom:3px;align-items:baseline}
+.itip-row:last-child{margin-bottom:0}
+.itip-k{font-weight:700;white-space:nowrap;min-width:32px;font-size:11px}
+.itip-v{color:var(--text2)}
+@media(max-width:640px){.itip-pop{max-width:calc(100vw - 32px)}}
 .print-only{display:none}
 .srch{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--text);
   font-size:12px;padding:6px 10px;width:100%;max-width:440px;font-family:inherit;outline:none;margin-bottom:8px}
@@ -573,6 +591,43 @@ const DOM_FIELDS = [
   {d:"Environnement", f:"Pct_Environnement"},
 ];
 
+const TIP_CYCLE=[
+  {k:"T1",v:"Évaluation d'Entrée (1er temps de mesure)",c:"#fbbf24"},
+  {k:"T2",v:"Évaluation de Sortie (2e temps de mesure)",c:"#34d399"},
+  {k:"P0",v:"Très débutant",c:"#f87171"},
+  {k:"P1",v:"Débutant",c:"#fb923c"},
+  {k:"P2",v:"Intermédiaire",c:"#4f8ef7"},
+  {k:"P3",v:"Avancé",c:"#34d399"},
+  {k:"%",v:"Score global de maîtrise PIX"},
+];
+const TIP_COMP=[
+  {k:"T1",v:"Score d'entrée (avant formation)",c:"#fbbf24"},
+  {k:"T2",v:"Score de sortie (après formation)",c:"#34d399"},
+  {k:"Δ pts",v:"Progression = T2 − T1 (en points)"},
+  {k:"7",v:"compétences du référentiel PIX"},
+];
+const TIP_DOM=[
+  {k:"T1",v:"Évaluation d'entrée",c:"#fbbf24"},
+  {k:"T2",v:"Évaluation de sortie",c:"#34d399"},
+  {k:"5",v:"domaines du cadre numérique européen"},
+  {k:"▲▼",v:"Progression / Régression entre T1 et T2"},
+];
+const TIP_FICHE=[
+  {k:"T1",v:"Score avant formation (entrée)",c:"#fbbf24"},
+  {k:"T2",v:"Score après formation (sortie)",c:"#34d399"},
+  {k:"P0–P3",v:"Palier PIX (0 = très débutant, 3 = avancé)"},
+  {k:"Jalons",v:"Compétences spécifiques validées (✓) ou non (✗)"},
+  {k:"▲▼=",v:"Évolution de la compétence entre T1 et T2"},
+];
+const TIP_OS=[
+  {k:"One Shot",v:"Atelier unique sans T1/T2 (mesure instantanée)"},
+  {k:"Score",v:"% de maîtrise global PIX"},
+  {k:"P0",v:"Très débutant",c:"#f87171"},
+  {k:"P1",v:"Débutant",c:"#fb923c"},
+  {k:"P2",v:"Intermédiaire",c:"#4f8ef7"},
+  {k:"P3",v:"Avancé",c:"#34d399"},
+];
+
 // ── CSV PARSER (robuste — détection colonnes par pattern) ─────────────────
 const COLMAP = [
   [c => c.toLowerCase().includes("email"),                                                       "Email"],
@@ -788,6 +843,29 @@ function KPI({label,value,sub,color=C.blue}){
   </div>`;
 }
 
+// ── INFO TIP ──────────────────────────────────────────────────────────────
+function InfoTip({items,title}){
+  const [open,setOpen]=useState(false);
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!open) return;
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target)) setOpen(false);};
+    document.addEventListener("mousedown",h);
+    return()=>document.removeEventListener("mousedown",h);
+  },[open]);
+  return html`<span class=${"itip"+(open?" open":"")} ref=${ref}
+    onClick=${e=>{e.stopPropagation();setOpen(v=>!v)}}>
+    <span class="itip-icon">i</span>
+    ${open?html`<div class="itip-pop" onClick=${e=>e.stopPropagation()}>
+      ${title?html`<div class="itip-ttl">${title}</div>`:null}
+      ${items.map(({k,v,c},i)=>html`<div key=${i} class="itip-row">
+        <span class="itip-k" style=${{color:c||"var(--blue)"}}>${k}</span>
+        <span class="itip-v">${v}</span>
+      </div>`)}
+    </div>`:null}
+  </span>`;
+}
+
 // ── PAGE 1 — Vue d'ensemble ────────────────────────────────────────────────
 function P1({data,curP}){
   const [showTable,setShowTable]=useState(false);
@@ -819,8 +897,13 @@ function P1({data,curP}){
   </div>`;
 
   return html`<div>
-    <div class="ph"><h2>Vue d'ensemble — Par cycle</h2>
-      <p>${curP==="Tous"?"Tous les partenaires":curP} · ${e1.length} participants T1 · ${e2.length} avec T2</p></div>
+    <div class="ph">
+      <div style=${{display:"flex",alignItems:"center",gap:4}}>
+        <h2 style=${{margin:0}}>Vue d'ensemble — Par cycle</h2>
+        <${InfoTip} title="Légende" items=${TIP_CYCLE}/>
+      </div>
+      <p style=${{marginTop:3}}>${curP==="Tous"?"Tous les partenaires":curP} · ${e1.length} participants T1 · ${e2.length} avec T2</p>
+    </div>
 
     ${survivorshipAlert?html`<div style=${{background:"rgba(251,191,36,.08)",border:"1px solid rgba(251,191,36,.3)",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#fbbf24"}}>
       ⚠️ Seulement ${e2.length}/${e1.length} participants ont un T2 — la progression moyenne peut être biaisée (survivorship bias).
@@ -941,7 +1024,13 @@ function P2({data,curP}){
     prog:e2.length?r100(avg(nn(e2.map(d=>d[f]))))-r100(avg(nn(e1.map(d=>d[f])))):0,
   }));
   return html`<div>
-    <div class="ph"><h2>Compétences PIX</h2><p>7 compétences · T1 vs T2</p></div>
+    <div class="ph">
+      <div style=${{display:"flex",alignItems:"center",gap:4}}>
+        <h2 style=${{margin:0}}>Compétences PIX</h2>
+        <${InfoTip} title="Légende" items=${TIP_COMP}/>
+      </div>
+      <p style=${{marginTop:3}}>7 compétences · T1 vs T2</p>
+    </div>
     <div class="gc" style=${{marginBottom:12}}>
       <div class="gt">Maîtrise par compétence (%)</div>
       <${ResponsiveContainer} width="100%" height=${ch(260,180)}>
@@ -992,7 +1081,13 @@ function P3({data,curP}){
   }));
   const radarData=domData.map(d=>({subject:d.name,"T1 Entrée":d["T1"],"T2 Sortie":d["T2"]}));
   return html`<div>
-    <div class="ph"><h2>Domaines PIX</h2><p>5 domaines · Progression T1 → T2</p></div>
+    <div class="ph">
+      <div style=${{display:"flex",alignItems:"center",gap:4}}>
+        <h2 style=${{margin:0}}>Domaines PIX</h2>
+        <${InfoTip} title="Légende" items=${TIP_DOM}/>
+      </div>
+      <p style=${{marginTop:3}}>5 domaines · Progression T1 → T2</p>
+    </div>
     <div class="g2">
       <div class="gc">
         <div class="gt">Maîtrise T1 vs T2 (%)</div>
@@ -1069,7 +1164,13 @@ function P4({data,curP}){
   const jalonsT1Map=Object.fromEntries(jalonsT1);
 
   return html`<div>
-    <div class="ph"><h2>Fiche individuelle</h2><p>Profil complet d'un participant</p></div>
+    <div class="ph">
+      <div style=${{display:"flex",alignItems:"center",gap:4}}>
+        <h2 style=${{margin:0}}>Fiche individuelle</h2>
+        <${InfoTip} title="Légende" items=${TIP_FICHE}/>
+      </div>
+      <p style=${{marginTop:3}}>Profil complet d'un participant</p>
+    </div>
     <div class="psel-w">
       <label>🔍 Sélectionner un participant</label>
       <input class="srch" placeholder="Rechercher par nom ou partenaire…" value=${search} onInput=${e=>setSearch(e.target.value)}/>
@@ -1196,8 +1297,11 @@ function P5({data,curP}){
 
   return html`<div>
     <div class="ph">
-      <h2>📸 Ateliers One Shot</h2>
-      <p>${curP==="Tous"?"Tous les partenaires":curP} · ${os.length} participant${os.length>1?"s":""} · Vue instantanée</p>
+      <div style=${{display:"flex",alignItems:"center",gap:4}}>
+        <h2 style=${{margin:0}}>📸 Ateliers One Shot</h2>
+        <${InfoTip} title="Légende" items=${TIP_OS}/>
+      </div>
+      <p style=${{marginTop:3}}>${curP==="Tous"?"Tous les partenaires":curP} · ${os.length} participant${os.length>1?"s":""} · Vue instantanée</p>
     </div>
 
     <div class="fmode no-print" style=${{marginBottom:16,maxWidth:300}}>
