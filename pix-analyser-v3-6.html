@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>PIX Analyser v2 — CD47</title>
+<title>PIX Analyser v3 — CD47</title>
 <style>
 /* DM Sans non disponible offline - fallback system-ui */
 :root{
@@ -749,20 +749,6 @@ function Tip({active,payload,label}){
   </div>`;
 }
 
-function TipPie({active,payload}){
-  if(!active||!payload||!payload.length) return null;
-  const d=payload[0];
-  return html`<div style=${{background:"rgba(22,27,39,.97)",border:"1px solid #3a4560",
-    borderRadius:8,padding:"8px 12px",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-    <div style=${{display:"flex",alignItems:"center",gap:8}}>
-      <span style=${{width:10,height:10,borderRadius:2,background:d.payload.color,display:"inline-block",flexShrink:0}}/>
-      <span style=${{color:"#e8edf5",fontWeight:600}}>${d.name}</span>
-    </div>
-    <div style=${{color:"#8b97b0",marginTop:4,paddingLeft:18}}>
-      ${d.value} participant${d.value>1?"s":""}
-    </div>
-  </div>`;
-}
 
 // ── KPI CARD ──────────────────────────────────────────────────────────────
 function KPI({label,value,sub,color=C.blue}){
@@ -788,7 +774,7 @@ function P1({data,curP}){
   const survivorshipAlert=e2.length>0&&e1.length>0&&e2.length/e1.length<0.5;
   const parts=[...new Set(data.filter(d=>d.Mode==="Cycle").map(d=>d.Partenaire))];
   const barData=parts.map(p=>({
-    name:p.length>11?p.slice(0,11)+"…":p,
+    name:p.length>15?p.slice(0,15)+"…":p,
     "T1":r100(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Entrée").map(d=>d.Score_Global)))),
     "T2":r100(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Sortie").map(d=>d.Score_Global)))),
   }));
@@ -1100,7 +1086,7 @@ function P5({data,curP}){
   const radarData=domData.map(d=>({subject:d.name,"Score":d["Score"]}));
   const osParts=[...new Set(osAll.map(d=>d.Partenaire))];
   const barParts=osParts.map(p=>({
-    name:p.length>11?p.slice(0,11)+"…":p,
+    name:p.length>15?p.slice(0,15)+"…":p,
     "Score":r100(avg(nn(osAll.filter(d=>d.Partenaire===p).map(d=>d.Score_Global)))),
     "Nb":osAll.filter(d=>d.Partenaire===p).length,
   }));
@@ -1363,10 +1349,14 @@ function App(){
 
   const printDash=()=>{
     document.querySelectorAll(".pagesec").forEach(p=>p.style.display="block");
+    if(tab!=="t5") document.querySelectorAll(".print-only").forEach(el=>el.style.display="none");
     setTimeout(()=>{
       window.print();
-      setTimeout(()=>document.querySelectorAll(".pagesec").forEach(p=>p.style.display=""),500);
-    },350);
+      setTimeout(()=>{
+        document.querySelectorAll(".pagesec").forEach(p=>p.style.display="");
+        document.querySelectorAll(".print-only").forEach(el=>el.style.display="");
+      },500);
+    },700);
   };
 
   useEffect(()=>{
@@ -1454,7 +1444,7 @@ function App(){
         <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
         <button class="d-btn" onClick=${exportJSON}>💾 JSON</button>
         <button class="d-btn" onClick=${importJSON}>📂 Import</button>
-        <button class="d-btn" onClick=${()=>{setFiles([]);setScreen("import");}}>← Nouvelle</button>
+        <button class="d-btn" onClick=${()=>{if(confirm("Nouvelle analyse ? Les données actuelles seront perdues.")){setFiles([]);setData([]);setScreen("import");}}}>← Nouvelle</button>
       </div>
     </div>
     <div class="dtabs">
