@@ -997,7 +997,9 @@ function P4({data,curP}){
   }));
   const prog=rowE&&rowS?r100(rowS.Score_Global-rowE.Score_Global):null;
   const nom=nomParticipant(rowE);
-  const jalons=Object.entries({...(rowE?.Jalons||{}),...(rowS?.Jalons||{})});
+  const jalonsT1=Object.entries(rowE?.Jalons||{});
+  const jalonsT2=Object.entries(rowS?.Jalons||{});
+  const jalonsT1Map=Object.fromEntries(jalonsT1);
 
   return html`<div>
     <div class="ph"><h2>Fiche individuelle</h2><p>Profil complet d'un participant</p></div>
@@ -1019,17 +1021,36 @@ function P4({data,curP}){
         <${KPI} label="📅 Date T1" value=${fmtDate(rowE.Date_Debut)} sub=${rowS?"T2 : "+fmtDate(rowS.Date_Debut):""} color=${C.blue}/>
       </div>
 
-      ${jalons.length?html`<div class="gc" style=${{marginBottom:12}}>
-        <div class="gt">Jalons${rowS?" (T2)":""}</div>
-        <div style=${{display:"flex",gap:8,flexWrap:"wrap",paddingTop:4}}>
-          ${jalons.map(([name,val],i)=>html`<span key=${i} title=${val===null?"Non renseigné dans le CSV":val===true?"Obtenu":"Non obtenu"} style=${{
-            background:val===true?"rgba(52,211,153,.15)":val===false?"rgba(248,113,113,.15)":"rgba(139,151,176,.15)",
-            color:val===true?C.green:val===false?C.red:"#8b97b0",
-            padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"default"}}>
-            ${val===true?"✓":val===false?"✗":"?"} ${name}
-          </span>`)}
-        </div>
-        <div style=${{fontSize:10,color:"var(--text3)",marginTop:6}}>? = non renseigné dans l'export PIX · survol pour détail</div>
+      ${(jalonsT1.length||jalonsT2.length)?html`<div class="gc" style=${{marginBottom:12}}>
+        <div class="gt">Jalons</div>
+        ${jalonsT1.length?html`<div style=${{marginBottom:jalonsT2.length?8:0}}>
+          <div style=${{fontSize:10,color:"var(--text3)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".4px"}}>T1</div>
+          <div style=${{display:"flex",gap:6,flexWrap:"wrap"}}>
+            ${jalonsT1.map(([name,val],i)=>html`<span key=${i} title=${val===null?"Non renseigné":val===true?"Obtenu":"Non obtenu"} style=${{
+              background:val===true?"rgba(52,211,153,.15)":val===false?"rgba(248,113,113,.15)":"rgba(139,151,176,.15)",
+              color:val===true?C.green:val===false?C.red:"#8b97b0",
+              padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"default"}}>
+              ${val===true?"✓":val===false?"✗":"?"} ${name}
+            </span>`)}
+          </div>
+        </div>`:null}
+        ${jalonsT2.length?html`<div>
+          <div style=${{fontSize:10,color:"var(--text3)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".4px"}}>T2</div>
+          <div style=${{display:"flex",gap:6,flexWrap:"wrap"}}>
+            ${jalonsT2.map(([name,val],i)=>{
+              const v1=jalonsT1Map[name];
+              const changed=v1!==undefined&&v1!==val;
+              return html`<span key=${i} title=${val===null?"Non renseigné":val===true?"Obtenu":"Non obtenu"} style=${{
+                background:val===true?"rgba(52,211,153,.15)":val===false?"rgba(248,113,113,.15)":"rgba(139,151,176,.15)",
+                color:val===true?C.green:val===false?C.red:"#8b97b0",
+                padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"default",
+                outline:changed?"2px solid "+(val===true?C.green:C.red):"none",outlineOffset:"1px"}}>
+                ${val===true?"✓":val===false?"✗":"?"} ${name}${changed?html`<span style=${{fontSize:9,marginLeft:4,opacity:.7}}>${v1===true?"était ✓":"était ✗"}</span>`:null}
+              </span>`;
+            })}
+          </div>
+        </div>`:null}
+        <div style=${{fontSize:10,color:"var(--text3)",marginTop:6}}>? = non renseigné · bordure colorée = changement entre T1 et T2</div>
       </div>`:null}
 
       <div class="gc" style=${{marginBottom:12}}>
