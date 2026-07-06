@@ -973,7 +973,7 @@ function P3({data,curP}){
 
 // ── PAGE 4 — Fiche individuelle ──────────────────────────────────────────
 function P4({data,curP}){
-  const parts=filt(data,curP,"Entrée");
+  const parts=filt(data,curP,"Entrée").slice().sort((a,b)=>nomParticipant(a).localeCompare(nomParticipant(b),"fr"));
   const [email,setEmail]=useState(parts[0]?.Email||"");
   useEffect(()=>{
     const ps=filt(data,curP,"Entrée");
@@ -1084,11 +1084,11 @@ function P5({data,curP}){
   const compData=COMP_FIELDS.map(({c,f})=>({name:c,"Score":os.length?r100(avg(nn(os.map(d=>d[f])))):0}));
   const domData=DOM_FIELDS.map(({d,f})=>({name:d,"Score":os.length?r100(avg(nn(os.map(x=>x[f])))):0}));
   const radarData=domData.map(d=>({subject:d.name,"Score":d["Score"]}));
-  const osParts=[...new Set(osAll.map(d=>d.Partenaire))];
+  const osParts=[...new Set(os.map(d=>d.Partenaire))];
   const barParts=osParts.map(p=>({
     name:p.length>15?p.slice(0,15)+"…":p,
-    "Score":r100(avg(nn(osAll.filter(d=>d.Partenaire===p).map(d=>d.Score_Global)))),
-    "Nb":osAll.filter(d=>d.Partenaire===p).length,
+    "Score":r100(avg(nn(os.filter(d=>d.Partenaire===p).map(d=>d.Score_Global)))),
+    "Nb":os.filter(d=>d.Partenaire===p).length,
   }));
   const rowOS=os.find(d=>d.Email===email);
   const compIndiv=COMP_FIELDS.map(({c,f},i)=>({name:c,color:COMP_COLORS[i%COMP_COLORS.length],score:rowOS?r100(rowOS[f]):null}));
