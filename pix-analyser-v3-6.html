@@ -569,7 +569,8 @@ const {
 
 // ── CONSTANTES ────────────────────────────────────────────────────────────
 const PCOL = ["#f87171","#fb923c","#4f8ef7","#34d399"];
-const PLIB = ["Très débutant","Débutant","Intermédiaire","Avancé"];
+const PLIB  = ["Très débutant","Débutant","Intermédiaire","Avancé"];
+const PALIB = ["TD","D","I","A"];
 const C = {blue:"#4f8ef7",green:"#34d399",yellow:"#fbbf24",
            orange:"#fb923c",red:"#f87171",purple:"#a78bfa"};
 const COMP_COLORS = ["#4f8ef7","#34d399","#a78bfa","#fb923c","#f472b6","#facc15","#f87171"];
@@ -594,10 +595,10 @@ const DOM_FIELDS = [
 const TIP_CYCLE=[
   {k:"T1",v:"Évaluation d'Entrée (1er temps de mesure)",c:"#fbbf24"},
   {k:"T2",v:"Évaluation de Sortie (2e temps de mesure)",c:"#34d399"},
-  {k:"P0",v:"Très débutant",c:"#f87171"},
-  {k:"P1",v:"Débutant",c:"#fb923c"},
-  {k:"P2",v:"Intermédiaire",c:"#4f8ef7"},
-  {k:"P3",v:"Avancé",c:"#34d399"},
+  {k:"TD",v:"Très débutant",c:"#f87171"},
+  {k:"D",v:"Débutant",c:"#fb923c"},
+  {k:"I",v:"Intermédiaire",c:"#4f8ef7"},
+  {k:"A",v:"Avancé",c:"#34d399"},
   {k:"%",v:"Score global de maîtrise PIX"},
 ];
 const TIP_COMP=[
@@ -615,17 +616,17 @@ const TIP_DOM=[
 const TIP_FICHE=[
   {k:"T1",v:"Score avant formation (entrée)",c:"#fbbf24"},
   {k:"T2",v:"Score après formation (sortie)",c:"#34d399"},
-  {k:"P0–P3",v:"Palier PIX (0 = très débutant, 3 = avancé)"},
+  {k:"TD/D/I/A",v:"Niveaux : Très Débutant · Débutant · Intermédiaire · Avancé"},
   {k:"Jalons",v:"Compétences spécifiques validées (✓) ou non (✗)"},
   {k:"▲▼=",v:"Évolution de la compétence entre T1 et T2"},
 ];
 const TIP_OS=[
   {k:"One Shot",v:"Atelier unique sans T1/T2 (mesure instantanée)"},
   {k:"Score",v:"% de maîtrise global PIX"},
-  {k:"P0",v:"Très débutant",c:"#f87171"},
-  {k:"P1",v:"Débutant",c:"#fb923c"},
-  {k:"P2",v:"Intermédiaire",c:"#4f8ef7"},
-  {k:"P3",v:"Avancé",c:"#34d399"},
+  {k:"TD",v:"Très débutant",c:"#f87171"},
+  {k:"D",v:"Débutant",c:"#fb923c"},
+  {k:"I",v:"Intermédiaire",c:"#4f8ef7"},
+  {k:"A",v:"Avancé",c:"#34d399"},
 ];
 
 // ── CSV PARSER (robuste — détection colonnes par pattern) ─────────────────
@@ -938,13 +939,13 @@ function P1({data,curP}){
         <div class="pal-tiles">
           ${[0,1,2,3].map(n=>html`<div key=${n} class="pal-tile">
             <div class="pal-tile-v" style=${{color:PCOL[n]}}>${e1.filter(d=>d.Palier===n).length}</div>
-            <div class="pal-tile-l">P${n} T1</div>
+            <div class="pal-tile-l">${PALIB[n]} · T1</div>
           </div>`)}
         </div>
         ${e2.length?html`<div class="pal-tiles" style=${{marginTop:4}}>
           ${[0,1,2,3].map(n=>html`<div key=${n} class="pal-tile" style=${{opacity:.8}}>
             <div class="pal-tile-v" style=${{color:PCOL[n],fontSize:18}}>${e2.filter(d=>d.Palier===n).length}</div>
-            <div class="pal-tile-l">P${n} T2</div>
+            <div class="pal-tile-l">${PALIB[n]} · T2</div>
           </div>`)}
         </div>`:null}
       </div>
@@ -997,7 +998,7 @@ function P1({data,curP}){
               return html`<tr key=${i}>
                 <td style=${{fontWeight:500}}>${nomParticipant(p)}</td>
                 <td style=${{color:"var(--text2)",fontSize:11}}>${p.Partenaire}</td>
-                <td><span class="badge" style=${{background:"rgba(79,142,247,.15)",color:PCOL[p.Palier]}}>P${p.Palier} ${PLIB[p.Palier]}</span></td>
+                <td><span class="badge" style=${{background:"rgba(79,142,247,.15)",color:PCOL[p.Palier]}}>${PALIB[p.Palier]} ${PLIB[p.Palier]}</span></td>
                 <td>${p.Score_Global!=null?pct(p.Score_Global):"—"}</td>
                 ${e2.length?html`
                   <td style=${{color:s?C.green:"var(--text3)"}}>${s&&s.Score_Global!=null?pct(s.Score_Global):"—"}</td>
@@ -1185,9 +1186,9 @@ function P4({data,curP}){
     </div>`:null}
     ${rowE&&html`<div>
       <div class="krow">
-        <${KPI} label="📋 Score T1" value=${pct(rowE.Score_Global)} sub=${"Palier "+rowE.Palier+"/3 · "+PLIB[rowE.Palier]+(rowE.Partenaire?" · "+rowE.Partenaire:"")} color=${PCOL[rowE.Palier]}/>
-        <${KPI} label="🏁 Score T2" value=${rowS?pct(rowS.Score_Global):"—"} sub=${rowS?"Palier "+rowS.Palier+"/3 · "+PLIB[rowS.Palier]:"Pas encore"} color=${rowS?PCOL[rowS.Palier]:C.blue}/>
-        ${rowS&&rowE.Palier!==rowS.Palier?html`<${KPI} label="🎓 Palier" value=${"P"+rowE.Palier+" → P"+rowS.Palier} sub=${rowS.Palier>rowE.Palier?"Progression de palier ✓":"Régression de palier"} color=${rowS.Palier>rowE.Palier?C.green:C.red}/>`:null}
+        <${KPI} label="📋 Score T1" value=${pct(rowE.Score_Global)} sub=${PALIB[rowE.Palier]+" · "+PLIB[rowE.Palier]+(rowE.Partenaire?" · "+rowE.Partenaire:"")} color=${PCOL[rowE.Palier]}/>
+        <${KPI} label="🏁 Score T2" value=${rowS?pct(rowS.Score_Global):"—"} sub=${rowS?PALIB[rowS.Palier]+" · "+PLIB[rowS.Palier]:"Pas encore"} color=${rowS?PCOL[rowS.Palier]:C.blue}/>
+        ${rowS&&rowE.Palier!==rowS.Palier?html`<${KPI} label="🎓 Palier" value=${PALIB[rowE.Palier]+" → "+PALIB[rowS.Palier]} sub=${rowS.Palier>rowE.Palier?"Progression de palier ✓":"Régression de palier"} color=${rowS.Palier>rowE.Palier?C.green:C.red}/>`:null}
         <${KPI} label="📈 Progression" value=${prog!=null?(prog>0?"+":"")+prog+" pts":"—"} sub="T2 − T1" color=${prog!=null&&prog>0?C.green:C.red}/>
         ${rowE.NbSessions>1&&html`<${KPI} label="🔄 Sessions" value=${rowE.NbSessions} sub=${rowE.Duree!=null?"sur "+rowE.Duree+" jours":""} color=${C.orange}/>`}
         <${KPI} label="📅 Date T1" value=${fmtDate(rowE.Date_Debut)} sub=${rowS?"T2 : "+fmtDate(rowS.Date_Debut):""} color=${C.blue}/>
@@ -1331,7 +1332,7 @@ function P5({data,curP}){
         <div class="gt">👤 ${nomParticipant(rowOS)}${curP==="Tous"?" · "+rowOS.Partenaire:""}</div>
         <div class="krow" style=${{marginBottom:10}}>
           <${KPI} label="📋 Score" value=${rowOS.Score_Global!=null?pct(rowOS.Score_Global):"Non partagé"} sub="Maîtrise globale" color=${rowOS.Score_Global!=null?C.purple:"var(--text3)"}/>
-          <${KPI} label="🎓 Niveau" value=${PLIB[rowOS.Palier]} sub="Palier ${rowOS.Palier}/3" color=${PCOL[rowOS.Palier]}/>
+          <${KPI} label="🎓 Niveau" value=${PLIB[rowOS.Palier]} sub=${PALIB[rowOS.Palier]} color=${PCOL[rowOS.Palier]}/>
           ${rowOS.Date_Debut?html`<${KPI} label="📅 Date atelier" value=${fmtDate(rowOS.Date_Debut)} sub=${rowOS.Partenaire} color=${C.blue}/>`:null}
         </div>
         ${jalons.length?html`<div style=${{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
@@ -1354,7 +1355,7 @@ function P5({data,curP}){
       <div class="krow">
         <${KPI} label="👥 Participants" value=${os.length} sub="${osParts.length} partenaire${osParts.length>1?"s":""}" color=${C.purple}/>
         <${KPI} label="📊 Score moyen" value=${pct(mScore)} sub="Maîtrise globale" color=${C.blue}/>
-        <${KPI} label="🎓 Niveau médian" value=${PLIB[palMoy]} sub="Palier ${palMoy}/3" color=${PCOL[palMoy]}/>
+        <${KPI} label="🎓 Niveau médian" value=${PLIB[palMoy]} sub=${PALIB[palMoy]} color=${PCOL[palMoy]}/>
       </div>
       <div class="g2">
         <div class="gc">
@@ -1427,7 +1428,7 @@ function P5({data,curP}){
           <div style=${{fontWeight:700,fontSize:12,marginBottom:6}}>
             👤 ${nomParticipant(p)}${curP==="Tous"?" · "+p.Partenaire:""}
             <span style=${{fontWeight:400,fontSize:11,marginLeft:8,color:"#555"}}>
-              ${PLIB[p.Palier]} · Palier ${p.Palier}/3
+              ${PALIB[p.Palier]} · ${PLIB[p.Palier]}
               ${p.Score_Global!=null?" · "+pct(p.Score_Global):" · Score non partagé"}
               ${p.Date_Debut?" · "+fmtDate(p.Date_Debut):""}
             </span>
