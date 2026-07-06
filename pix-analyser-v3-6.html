@@ -1633,7 +1633,14 @@ function App(){
       <div class="d-sep"/>
       <span class="d-sub">${subtitle}</span>
       <div class="d-right">
-        <select class="d-sel" value=${curP} onChange=${e=>setCurP(e.target.value)}>
+        <select class="d-sel" value=${curP} onChange=${e=>{
+          const p=e.target.value;
+          setCurP(p);
+          const hasC=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="Cycle");
+          const hasOS=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="OneShot");
+          if(!hasC&&hasOS) setTab("t5");
+          else if(hasC&&tab==="t5") setTab("t1");
+        }}>
           ${partenaires.map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
         </select>
         <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
@@ -1644,7 +1651,14 @@ function App(){
         <div class="mob-menu-wrap">
           <button class="mob-menu-btn" onClick=${()=>setMobMenu(v=>!v)}>⋯</button>
           ${mobMenu?html`<div class="mob-menu-drop" onClick=${()=>setMobMenu(false)}>
-            <select class="d-sel" style=${{width:"100%",marginBottom:4}} value=${curP} onChange=${e=>setCurP(e.target.value)}>
+            <select class="d-sel" style=${{width:"100%",marginBottom:4}} value=${curP} onChange=${e=>{
+              const p=e.target.value;
+              setCurP(p);
+              const hasC=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="Cycle");
+              const hasOS=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="OneShot");
+              if(!hasC&&hasOS) setTab("t5");
+              else if(hasC&&tab==="t5") setTab("t1");
+            }}>
               ${partenaires.map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
             </select>
             <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
