@@ -520,7 +520,7 @@ function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 
 const html = htm.bind(React.createElement);
-const { useState, useEffect, useCallback, useRef } = React;
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
 const {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -768,25 +768,28 @@ function KPI({label,value,sub,color=C.blue}){
 
 // ── PAGE 1 — Vue d'ensemble ────────────────────────────────────────────────
 function P1({data,curP}){
-  const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
-  const scoresE=nn(e1.map(d=>d.Score_Global)),scoresS=nn(e2.map(d=>d.Score_Global));
-  const mE=scoresE.length?avg(scoresE):null;
-  const mS=scoresS.length?avg(scoresS):null;
-  const medE=median(scoresE),medS=median(scoresS);
-  const pr=mE!=null&&mS!=null?mS-mE:null;
-  const prRel=mE!=null&&mE>0&&pr!=null?Math.round(pr/mE*100):null;
-  const nbProg=e2.filter(d=>{const d1=data.find(x=>x.Email===d.Email&&x.TypeCampagne==="Entrée");return d1&&d.Score_Global!=null&&d1.Score_Global!=null&&d.Score_Global>d1.Score_Global;}).length;
-  const durees=e1.filter(d=>d.Duree!=null).map(d=>d.Duree);
-  const mD=durees.length?Math.round(avg(durees)):null;
-  const survivorshipAlert=e2.length>0&&e1.length>0&&e2.length/e1.length<0.5;
-  const parts=[...new Set(data.filter(d=>d.Mode==="Cycle").map(d=>d.Partenaire))];
-  const barData=parts.map(p=>({
-    name:p.length>15?p.slice(0,15)+"…":p,
-    "T1":r100(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Entrée").map(d=>d.Score_Global)))),
-    "T2":r100(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Sortie").map(d=>d.Score_Global)))),
-  }));
-  const palData=[0,1,2,3].map(n=>({name:PLIB[n],value:e1.filter(d=>d.Palier===n).length,color:PCOL[n]})).filter(d=>d.value>0);
-  const palT2Data=[0,1,2,3].map(n=>({name:PLIB[n],value:e2.filter(d=>d.Palier===n).length,color:PCOL[n]})).filter(d=>d.value>0);
+  const {e1,e2,mE,mS,medE,medS,pr,prRel,nbProg,mD,survivorshipAlert,parts,barData,palData,palT2Data}=useMemo(()=>{
+    const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
+    const scoresE=nn(e1.map(d=>d.Score_Global)),scoresS=nn(e2.map(d=>d.Score_Global));
+    const mE=scoresE.length?avg(scoresE):null,mS=scoresS.length?avg(scoresS):null;
+    const medE=median(scoresE),medS=median(scoresS);
+    const pr=mE!=null&&mS!=null?mS-mE:null;
+    const prRel=mE!=null&&mE>0&&pr!=null?Math.round(pr/mE*100):null;
+    const t1Map=new Map(filt(data,"Tous","Entrée").map(d=>[d.Email,d]));
+    const nbProg=e2.filter(d=>{const d1=t1Map.get(d.Email);return d1&&d.Score_Global!=null&&d1.Score_Global!=null&&d.Score_Global>d1.Score_Global;}).length;
+    const durees=e1.filter(d=>d.Duree!=null).map(d=>d.Duree);
+    const mD=durees.length?Math.round(avg(durees)):null;
+    const survivorshipAlert=e2.length>0&&e1.length>0&&e2.length/e1.length<0.5;
+    const parts=[...new Set(data.filter(d=>d.Mode==="Cycle").map(d=>d.Partenaire))];
+    const barData=parts.map(p=>({
+      name:p.length>15?p.slice(0,15)+"…":p,
+      "T1":r100(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Entrée").map(d=>d.Score_Global)))),
+      "T2":r100(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Sortie").map(d=>d.Score_Global)))),
+    }));
+    const palData=[0,1,2,3].map(n=>({name:PLIB[n],value:e1.filter(d=>d.Palier===n).length,color:PCOL[n]})).filter(d=>d.value>0);
+    const palT2Data=[0,1,2,3].map(n=>({name:PLIB[n],value:e2.filter(d=>d.Palier===n).length,color:PCOL[n]})).filter(d=>d.value>0);
+    return {e1,e2,mE,mS,medE,medS,pr,prRel,nbProg,mD,survivorshipAlert,parts,barData,palData,palT2Data};
+  },[data,curP]);
 
   if(!e1.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>
     <div style=${{fontSize:36,marginBottom:12}}>🔄</div>Aucune donnée "Par cycle" pour ce filtre.
