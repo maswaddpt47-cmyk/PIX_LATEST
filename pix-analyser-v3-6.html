@@ -1265,6 +1265,7 @@ function App(){
   const [tab,setTab]=useState("t1");
   const [subtitle,setSubtitle]=useState("");
   const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(false);
   const dropRef=useRef(null);
   const toastRef=useRef(null);
   const showToast=(msg,type="ok")=>{
@@ -1288,7 +1289,7 @@ function App(){
         const autoMode=avecT2.length===0?"oneshot":"cycle";
         setFiles(prev=>[...prev,{
           id:Date.now()+Math.random(),
-          name:f.name,partenaire:"",mode:autoMode,
+          name:f.name,partenaire:"",mode:autoMode,autoDetected:true,
           rows,nEmails:emails.size,nT2:avecT2.length,
         }]);
       };
@@ -1301,19 +1302,23 @@ function App(){
   const updateMode=(id,val)=>setFiles(prev=>prev.map(f=>f.id===id?{...f,mode:val}:f));
 
   const generate=()=>{
-    const d=processFiles(files);
-    if(!d.length){showToast("Aucune donnée valide dans les fichiers chargés.","err");return;}
-    setData(d);
-    const nbT1=d.filter(r=>r.TypeCampagne==="Entrée").length;
-    const nbT2=d.filter(r=>r.TypeCampagne==="Sortie").length;
-    const nbOS=d.filter(r=>r.Mode==="OneShot").length;
-    let sub=`${files.length} campagne${files.length>1?"s":""}`;
-    if(nbT1) sub+=` · ${nbT1} participants cycle`;
-    if(nbOS) sub+=` · ${nbOS} one shot`;
-    setSubtitle(sub);
-    setCurP("Tous");
-    setTab(d.some(r=>r.Mode==="Cycle")?"t1":"t5");
-    setScreen("dash");
+    setLoading(true);
+    setTimeout(()=>{
+      const d=processFiles(files);
+      setLoading(false);
+      if(!d.length){showToast("Aucune donnée valide dans les fichiers chargés.","err");return;}
+      setData(d);
+      const nbT1=d.filter(r=>r.TypeCampagne==="Entrée").length;
+      const nbT2=d.filter(r=>r.TypeCampagne==="Sortie").length;
+      const nbOS=d.filter(r=>r.Mode==="OneShot").length;
+      let sub=`${files.length} campagne${files.length>1?"s":""}`;
+      if(nbT1) sub+=` · ${nbT1} participants cycle`;
+      if(nbOS) sub+=` · ${nbOS} one shot`;
+      setSubtitle(sub);
+      setCurP("Tous");
+      setTab(d.some(r=>r.Mode==="Cycle")?"t1":"t5");
+      setScreen("dash");
+    },30);
   };
 
   const exportJSON=()=>{
@@ -1433,10 +1438,17 @@ function App(){
             📸 One Shot (vue unique)
           </button>
         </div>
+        ${f.autoDetected?html`<div style=${{fontSize:10,color:"var(--text3)",marginTop:4,paddingLeft:2}}>
+          🤖 Détecté auto · ${f.mode==="oneshot"
+            ?"0 participant avec 2 sessions → One Shot"
+            :f.nT2+" participant"+(f.nT2>1?"s":"")+" avec T2 → Cycle"}
+        </div>`:null}
       </div>`)}
     </div>`}
 
-    ${files.length>0&&html`<button class="btn-gen" onClick=${generate}>⚡ Générer le dashboard</button>`}
+    ${files.length>0&&html`<button class="btn-gen" onClick=${generate} disabled=${loading}>
+      ${loading?"⏳ Traitement en cours…":"⚡ Générer le dashboard"}
+    </button>`}
     <p class="hint">Par cycle : T1 = 1ère session · T2 = dernière · One Shot : 1 visite par participant, dédupliqué si campagne rechargée</p>
   </div>`;
 
