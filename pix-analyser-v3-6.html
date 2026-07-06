@@ -562,7 +562,7 @@ const html = htm.bind(React.createElement);
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 const ch=(d,m=150)=>window.innerWidth<640?m:d;
 const {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   PieChart, Pie, Cell, LabelList
 } = Recharts;
@@ -692,7 +692,10 @@ function parseCSV(text){
   const headers=parseLine(lines[0]).map(h=>h.replace(/^"|"$/g,"").trim());
   const colIdx={};
   headers.forEach((h,i)=>{const m=mapCol(h);if(m)colIdx[m]=i;});
-  return lines.slice(1).map(line=>{
+  const CRITICAL_COLS=["Email","Score_Global","Palier"];
+  const missingCols=CRITICAL_COLS.filter(c=>colIdx[c]==null);
+  if(colIdx["TypeCampagne"]==null&&colIdx["Nom_Campagne"]==null) missingCols.push("Nom_Campagne");
+  const rows=lines.slice(1).map(line=>{
     const cells=parseLine(line);
     if(cells.length<3) return null;
     const get=k=>colIdx[k]!=null?(cells[colIdx[k]]||"").replace(/^"|"$/g,"").trim():"";
@@ -737,6 +740,7 @@ function parseCSV(text){
       Jalons:jalons,
     };
   }).filter(Boolean);
+  return {rows,missingCols};
 }
 
 function parseDate(str){
@@ -837,10 +841,11 @@ function Tip({active,payload,label}){
 
 
 // ── KPI CARD ──────────────────────────────────────────────────────────────
-function KPI({label,value,sub,color=C.blue}){
+function KPI({label,value,sub,color=C.blue,n=null}){
   return html`<div class="kc" style=${{borderTopColor:color}}>
     <div class="kl">${label}</div>
     <div class="kv" style=${{color,fontSize:typeof value==="string"&&value.length>5?18:22}}>${value}</div>
+    ${n!=null&&n<5?html`<div style=${{display:"inline-block",background:"rgba(248,113,113,.18)",color:"#f87171",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700,marginTop:2}}>⚠ n=${n}</div>`:null}
     ${sub&&html`<div class="ks">${sub}</div>`}
   </div>`;
 }
@@ -869,7 +874,7 @@ function InfoTip({items,title}){
 }
 
 // ── PAGE 1 — Vue d'ensemble ────────────────────────────────────────────────
-function P1({data,curP}){
+function P1({data,curP,curP2=null}){
   const [showTable,setShowTable]=useState(false);
   const {e1,e2,mE,mS,medE,medS,pr,prRel,nbPaired,nbProg,mD,survivorshipAlert,survivorshipSevere,parts,barData}=useMemo(()=>{
     const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
@@ -904,6 +909,42 @@ function P1({data,curP}){
     return {e1,e2,mE,mS,medE,medS,pr,prRel,nbPaired,nbProg,mD,survivorshipAlert,survivorshipSevere,parts,barData};
   },[data,curP]);
 
+  // F4 — Évolution temporelle
+  const tempData=useMemo(()=>{
+    const byMonth={};
+    filt(data,curP,"Entrée").concat(filt(data,curP,"Sortie")).forEach(d=>{
+      if(!d.Date_Debut||d.Score_Global==null) return;
+      const dt=parseDate(d.Date_Debut);
+      if(!dt) return;
+      const key=dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0");
+      if(!byMonth[key]) byMonth[key]={key,t1:[],t2:[]};
+      if(d.TypeCampagne==="Entrée") byMonth[key].t1.push(d.Score_Global);
+      else byMonth[key].t2.push(d.Score_Global);
+    });
+    return Object.values(byMonth).sort((a,b)=>a.key.localeCompare(b.key)).map(m=>({
+      name:m.key.slice(5)+"/"+m.key.slice(0,4),
+      T1:m.t1.length?r100(avg(m.t1)):null,
+      T2:m.t2.length?r100(avg(m.t2)):null,
+    }));
+  },[data,curP]);
+
+  // F6 — Données partenaire de comparaison
+  const p2Data=useMemo(()=>{
+    if(!curP2) return null;
+    const p2e1=filt(data,curP2,"Entrée"),p2e2=filt(data,curP2,"Sortie");
+    const scE=nn(p2e1.map(d=>d.Score_Global)),scS=nn(p2e2.map(d=>d.Score_Global));
+    const mE2=scE.length?avg(scE):null,mS2=scS.length?avg(scS):null;
+    const medE2=median(scE),medS2=median(scS);
+    const p2e2Em=new Set(p2e2.map(d=>d.Email));
+    const p2e1Em=new Set(p2e1.map(d=>d.Email));
+    const paired1=p2e1.filter(d=>p2e2Em.has(d.Email));
+    const paired2=p2e2.filter(d=>p2e1Em.has(d.Email));
+    const mEp=nn(paired1.map(d=>d.Score_Global)),mSp=nn(paired2.map(d=>d.Score_Global));
+    const mEpa=mEp.length?avg(mEp):null,mSpa=mSp.length?avg(mSp):null;
+    const pr2=mEpa!=null&&mSpa!=null?mSpa-mEpa:null;
+    return {p2e1,p2e2,mE2,mS2,medE2,medS2,paired1,pr2};
+  },[data,curP2]);
+
   if(!e1.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>
     <div style=${{fontSize:36,marginBottom:12}}>🔄</div>Aucune donnée "Par cycle" pour ce filtre.
   </div>`;
@@ -926,13 +967,22 @@ function P1({data,curP}){
     </div>`:null}
     <div class="krow">
       <${KPI} label="👥 Participants" value=${e1.length} sub="${e2.length} avec T2" color=${C.blue}/>
-      <${KPI} label="📊 Maîtrise T1" value=${pct(mE)} sub=${"Médiane : "+pct(medE)} color=${C.yellow}/>
-      <${KPI} label="🎯 Maîtrise T2" value=${pct(mS)} sub=${"Médiane : "+pct(medS)} color=${C.green}/>
-      <${KPI} label="📈 Progression" value=${pr!=null?(pr>0?"+":"")+pct(pr):"—"} sub=${prRel!=null?"soit "+(prRel>0?"+":"")+prRel+"% relatif · "+nbPaired+" paires":"T2 − T1 (paires)"} color=${pr!=null&&pr>0?C.green:C.red}/>
+      <${KPI} label="📊 Maîtrise T1" value=${pct(mE)} sub=${"Médiane : "+pct(medE)} color=${C.yellow} n=${e1.length}/>
+      <${KPI} label="🎯 Maîtrise T2" value=${pct(mS)} sub=${"Médiane : "+pct(medS)} color=${C.green} n=${e2.length}/>
+      <${KPI} label="📈 Progression" value=${pr!=null?(pr>0?"+":"")+pct(pr):"—"} sub=${prRel!=null?"soit "+(prRel>0?"+":"")+prRel+"% relatif · "+nbPaired+" paires":"T2 − T1 (paires)"} color=${pr!=null&&pr>0?C.green:C.red} n=${nbPaired}/>
       ${e2.length?html`<${KPI} label="✅ Ont progressé" value="${nbProg}/${e2.length}" sub=${e2.length?Math.round(nbProg/e2.length*100)+"% des T2":""} color=${C.green}/>`:null}
       ${mD!=null&&html`<${KPI} label="📅 Durée moy." value="${mD}j" sub="Entre T1 et T2" color=${C.purple}/>`}
       <${KPI} label=${"🏅 "+PLIB[3]} value=${e1.filter(d=>d.Palier===3).length} sub=${"sur "+e1.length+" (T1)"} color=${C.green}/>
     </div>
+    ${p2Data?html`<div style=${{marginBottom:12}}>
+      <div style=${{fontSize:10,fontWeight:700,color:C.purple,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6,borderLeft:"3px solid "+C.purple,paddingLeft:8}}>vs. ${curP2}</div>
+      <div class="krow">
+        <${KPI} label="👥 Participants" value=${p2Data.p2e1.length} sub="${p2Data.p2e2.length} avec T2" color=${C.purple}/>
+        <${KPI} label="📊 Maîtrise T1" value=${pct(p2Data.mE2)} sub=${"Médiane : "+pct(p2Data.medE2)} color=${C.purple} n=${p2Data.p2e1.length}/>
+        <${KPI} label="🎯 Maîtrise T2" value=${pct(p2Data.mS2)} sub=${"Médiane : "+pct(p2Data.medS2)} color=${C.purple} n=${p2Data.p2e2.length}/>
+        <${KPI} label="📈 Progression" value=${p2Data.pr2!=null?(p2Data.pr2>0?"+":"")+pct(p2Data.pr2):"—"} sub=${p2Data.paired1.length+" paires"} color=${p2Data.pr2!=null&&p2Data.pr2>0?C.green:C.red} n=${p2Data.paired1.length}/>
+      </div>
+    </div>`:null}
 
     <div class="g2">
       <div class="gc">
@@ -990,6 +1040,23 @@ function P1({data,curP}){
             <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
             <${Bar} dataKey="T1" fill=${C.yellow} radius=${[0,4,4,0]} maxBarSize=${14}/>
             <${Bar} dataKey="T2" fill=${C.green}  radius=${[0,4,4,0]} maxBarSize=${14}/>
+          <//>
+        <//>
+      </div>
+    `:null}
+
+    ${tempData.length>=3?html`
+      <div class="gc" style=${{marginBottom:12}}>
+        <div class="gt">Évolution des scores dans le temps (par mois)</div>
+        <${ResponsiveContainer} width="100%" height=${ch(200,140)}>
+          <${LineChart} data=${tempData} margin=${{top:4,right:16,left:-20,bottom:0}}>
+            <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
+            <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}}/>
+            <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
+            <${Tooltip} content=${Tip}/>
+            <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
+            <${Line} type="monotone" dataKey="T1" stroke=${C.yellow} strokeWidth=${2} dot=${{r:3,fill:C.yellow}} connectNulls/>
+            <${Line} type="monotone" dataKey="T2" stroke=${C.green} strokeWidth=${2} dot=${{r:3,fill:C.green}} connectNulls/>
           <//>
         <//>
       </div>
@@ -1170,7 +1237,7 @@ function P3({data,curP}){
 }
 
 // ── PAGE 4 — Fiche individuelle ──────────────────────────────────────────
-function P4({data,curP}){
+function P4({data,curP,preEmail=null}){
   const allParts=filt(data,curP,"Entrée").slice().sort((a,b)=>nomParticipant(a).localeCompare(nomParticipant(b),"fr"));
   const [search,setSearch]=useState("");
   const parts=allParts.filter(p=>!search||nomParticipant(p).toLowerCase().includes(search.toLowerCase())||p.Partenaire.toLowerCase().includes(search.toLowerCase()));
@@ -1179,6 +1246,9 @@ function P4({data,curP}){
     const ps=filt(data,curP,"Entrée");
     if(ps.length&&!ps.find(p=>p.Email===email)) setEmail(ps[0]?.Email||"");
   },[curP,data]);
+  useEffect(()=>{
+    if(preEmail){const found=filt(data,curP,"Entrée").find(p=>p.Email===preEmail);if(found)setEmail(preEmail);}
+  },[preEmail]);
   const rowE=data.find(d=>d.Email===email&&d.TypeCampagne==="Entrée");
   const rowS=data.find(d=>d.Email===email&&d.TypeCampagne==="Sortie");
   if(!parts.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>Aucun participant cycle.</div>`;
@@ -1202,6 +1272,7 @@ function P4({data,curP}){
       </div>
       <p style=${{marginTop:3}}>Profil complet d'un participant</p>
     </div>
+    <button class="d-btn no-print" style=${{marginBottom:12}} onClick=${()=>window.print()}>🖨️ Imprimer toutes les fiches</button>
     <div class="psel-w">
       <label>🔍 Sélectionner un participant</label>
       <input class="srch" placeholder="Rechercher par nom ou partenaire…" value=${search} onInput=${e=>setSearch(e.target.value)}/>
@@ -1288,11 +1359,52 @@ function P4({data,curP}){
         <//>
       </div>
     </div>`}
+
+    <!-- Fiches cycle — impression uniquement -->
+    <div class="print-only" style=${{marginTop:20}}>
+      <div style=${{fontSize:13,fontWeight:700,borderBottom:"2px solid #1a73e8",paddingBottom:6,marginBottom:12,color:"#1a73e8"}}>
+        Fiches Cycle — ${allParts.length} participant${allParts.length>1?"s":""}
+      </div>
+      ${allParts.map((p,i)=>{
+        const s=data.find(d=>d.Email===p.Email&&d.TypeCampagne==="Sortie");
+        const pr2=s&&p.Score_Global!=null&&s.Score_Global!=null?r100(s.Score_Global-p.Score_Global):null;
+        const ci=COMP_FIELDS.map(({c,f},j)=>({name:c,color:COMP_COLORS[j%COMP_COLORS.length],t1:p[f]!=null?r100(p[f]):null,t2:s&&s[f]!=null?r100(s[f]):null}));
+        return html`<div key=${i} class="print-fiche">
+          <div style=${{fontWeight:700,fontSize:12,marginBottom:4}}>
+            👤 ${nomParticipant(p)} · ${p.Partenaire}
+            <span style=${{fontWeight:400,fontSize:11,marginLeft:6,color:"#555"}}>${PALIB[p.Palier]} · ${PLIB[p.Palier]}</span>
+          </div>
+          <div style=${{display:"flex",gap:16,marginBottom:5,fontSize:11}}>
+            <span>T1 : <strong>${p.Score_Global!=null?pct(p.Score_Global):"—"}</strong></span>
+            <span>T2 : <strong>${s&&s.Score_Global!=null?pct(s.Score_Global):"—"}</strong></span>
+            ${pr2!=null?html`<span>Prog : <strong style=${{color:pr2>0?"#065f46":"#7f1d1d"}}>${pr2>0?"+":""}${pr2} pts</strong></span>`:null}
+          </div>
+          <div style=${{display:"flex",gap:12}}>
+            <div style=${{flex:1}}>
+              <div style=${{fontSize:9,fontWeight:700,color:"#92400e",marginBottom:2,textTransform:"uppercase"}}>T1</div>
+              ${ci.map((c,k)=>html`<div key=${k} style=${{display:"flex",alignItems:"center",gap:4,fontSize:9,marginBottom:1}}>
+                <span style=${{width:75,color:"#555",flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>${c.name}</span>
+                <div style=${{flex:1,height:4,background:"#eee",borderRadius:2}}><div style=${{width:(c.t1||0)+"%",height:"100%",background:c.color,borderRadius:2}}/></div>
+                <span style=${{width:24,textAlign:"right",fontWeight:600,color:c.t1!=null?c.color:"#aaa",fontSize:8}}>${c.t1!=null?c.t1+"%":"—"}</span>
+              </div>`)}
+            </div>
+            ${s?html`<div style=${{flex:1}}>
+              <div style=${{fontSize:9,fontWeight:700,color:"#065f46",marginBottom:2,textTransform:"uppercase"}}>T2</div>
+              ${ci.map((c,k)=>html`<div key=${k} style=${{display:"flex",alignItems:"center",gap:4,fontSize:9,marginBottom:1}}>
+                <span style=${{width:75,color:"#555",flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>${c.name}</span>
+                <div style=${{flex:1,height:4,background:"#eee",borderRadius:2}}><div style=${{width:(c.t2||0)+"%",height:"100%",background:c.color,borderRadius:2}}/></div>
+                <span style=${{width:24,textAlign:"right",fontWeight:600,color:c.t2!=null?c.color:"#aaa",fontSize:8}}>${c.t2!=null?c.t2+"%":"—"}</span>
+              </div>`)}
+            </div>`:null}
+          </div>
+        </div>`;
+      })}
+    </div>
   </div>`;
 }
 
 // ── PAGE 5 — One Shot ────────────────────────────────────────────────────
-function P5({data,curP}){
+function P5({data,curP,preEmail=null}){
   const osAll=data.filter(d=>d.Mode==="OneShot");
   const normP=s=>(s||"").trim();
   const os=osAll.filter(d=>curP==="Tous"||normP(d.Partenaire)===normP(curP));
@@ -1306,6 +1418,9 @@ function P5({data,curP}){
     const target=osFiltScore.length?osFiltScore:osFilt;
     if(target.length&&!target.find(p=>p.Email===email)) setEmail(target[0]?.Email||"");
   },[curP,data]);
+  useEffect(()=>{
+    if(preEmail){const found=os.find(p=>p.Email===preEmail);if(found){setEmail(preEmail);setVue("individuel");}}
+  },[preEmail]);
 
   if(!os.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>
     <div style=${{fontSize:44,marginBottom:12}}>📸</div>Aucun atelier One Shot pour ce filtre.
@@ -1385,7 +1500,7 @@ function P5({data,curP}){
     `:html`
       <div class="krow">
         <${KPI} label="👥 Participants" value=${os.length} sub="${osParts.length} partenaire${osParts.length>1?"s":""}" color=${C.purple}/>
-        <${KPI} label="📊 Score moyen" value=${pct(mScore)} sub="Maîtrise globale" color=${C.blue}/>
+        <${KPI} label="📊 Score moyen" value=${pct(mScore)} sub="Maîtrise globale" color=${C.blue} n=${osAvecScore.length}/>
         <${KPI} label="🎓 Niveau médian" value=${PLIB[palMoy]} sub=${PALIB[palMoy]} color=${PCOL[palMoy]}/>
       </div>
       <div class="g2">
@@ -1487,6 +1602,58 @@ function P5({data,curP}){
   </div>`;
 }
 
+// ── RECHERCHE GLOBALE (F5) ───────────────────────────────────────────────
+function GlobalSearch({data,onClose,onSelect}){
+  const [q,setQ]=useState("");
+  const inputRef=useRef(null);
+  useEffect(()=>{
+    inputRef.current?.focus();
+    const onKey=e=>{if(e.key==="Escape")onClose();};
+    document.addEventListener("keydown",onKey);
+    return()=>document.removeEventListener("keydown",onKey);
+  },[onClose]);
+  const results=useMemo(()=>{
+    if(!q||q.trim().length<2) return [];
+    const ql=q.trim().toLowerCase();
+    const seen=new Set();
+    return data.filter(d=>{
+      if(seen.has(d.Email)) return false;
+      const name=nomParticipant(d).toLowerCase();
+      const email=(d.Email||"").toLowerCase();
+      if(name.includes(ql)||email.includes(ql)){seen.add(d.Email);return true;}
+      return false;
+    }).slice(0,20);
+  },[data,q]);
+  return html`<div style=${{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}}
+    onClick=${e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div style=${{background:"var(--bg2)",border:"1px solid var(--border2)",borderRadius:14,padding:18,width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(0,0,0,.7)"}}>
+      <div style=${{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+        <span style=${{fontSize:18}}>🔍</span>
+        <input ref=${inputRef} style=${{flex:1,background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:7,color:"var(--text)",fontSize:13,padding:"8px 12px",fontFamily:"inherit",outline:"none"}}
+          placeholder="Nom, prénom ou email…" value=${q} onInput=${e=>setQ(e.target.value)}/>
+        <button onClick=${onClose} style=${{background:"none",border:"none",color:"var(--text3)",fontSize:22,cursor:"pointer",lineHeight:1,padding:"0 4px"}}>×</button>
+      </div>
+      <div style=${{overflowY:"auto",flex:1}}>
+        ${q.trim().length>=2
+          ?results.length
+            ?results.map((d,i)=>html`<div key=${i}
+              onClick=${()=>onSelect(d.Email,d.Mode)}
+              style=${{padding:"9px 12px",borderRadius:8,cursor:"pointer",marginBottom:4,background:"var(--bg3)",display:"flex",alignItems:"center",gap:12}}
+              onMouseEnter=${e=>e.currentTarget.style.background="rgba(79,142,247,.12)"}
+              onMouseLeave=${e=>e.currentTarget.style.background="var(--bg3)"}>
+              <div style=${{flex:1,minWidth:0}}>
+                <div style=${{fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>${nomParticipant(d)}</div>
+                <div style=${{fontSize:11,color:"var(--text2)",marginTop:2}}>${d.Partenaire} · ${d.Mode==="Cycle"?"📊 Cycle":"📸 One Shot"}</div>
+              </div>
+              <span style=${{background:d.Mode==="Cycle"?"rgba(79,142,247,.2)":"rgba(167,139,250,.2)",color:d.Mode==="Cycle"?C.blue:C.purple,padding:"2px 8px",borderRadius:5,fontSize:11,fontWeight:700,flexShrink:0}}>${PALIB[d.Palier]}</span>
+            </div>`)
+            :html`<div style=${{textAlign:"center",padding:28,color:"var(--text3)",fontSize:13}}>Aucun résultat pour "${q}"</div>`
+          :html`<div style=${{textAlign:"center",padding:28,color:"var(--text3)",fontSize:13}}>Tapez au moins 2 caractères…</div>`}
+      </div>
+    </div>
+  </div>`;
+}
+
 // ── ERROR BOUNDARY ────────────────────────────────────────────────────────
 class ErrorBoundary extends React.Component{
   constructor(p){super(p);this.state={err:null};}
@@ -1510,11 +1677,14 @@ function App(){
   const [files,setFiles]=useState([]);
   const [data,setData]=useState([]);
   const [curP,setCurP]=useState("Tous");
+  const [curP2,setCurP2]=useState(null);
   const [tab,setTab]=useState("t1");
   const [subtitle,setSubtitle]=useState("");
   const [toast,setToast]=useState(null);
   const [loading,setLoading]=useState(false);
   const [mobMenu,setMobMenu]=useState(false);
+  const [searchOpen,setSearchOpen]=useState(false);
+  const [globalSelectedEmail,setGlobalSelectedEmail]=useState(null);
   const dropRef=useRef(null);
   const dctRef=useRef(null);
   const toastRef=useRef(null);
@@ -1570,7 +1740,7 @@ function App(){
         let text;
         try{text=new TextDecoder("utf-8",{fatal:true}).decode(buf);}
         catch(_){text=new TextDecoder("iso-8859-1").decode(buf);}
-        const rows=parseCSV(text);
+        const {rows,missingCols}=parseCSV(text);
         const emails=new Set(rows.map(r=>r.Email));
         const avecT2=[...emails].filter(em=>rows.filter(r=>r.Email===em).length>1);
         const autoMode=avecT2.length===0?"oneshot":"cycle";
@@ -1578,6 +1748,7 @@ function App(){
           id:Date.now()+Math.random(),
           name:f.name,partenaire:"",mode:autoMode,autoDetected:true,
           rows,nEmails:emails.size,nT2:avecT2.length,
+          warnings:missingCols,
         }]);
       };
       reader.readAsArrayBuffer(f);
@@ -1748,6 +1919,9 @@ function App(){
             ?"0 participant avec 2 sessions → One Shot"
             :f.nT2+" participant"+(f.nT2>1?"s":"")+" avec T2 → Cycle"}
         </div>`:null}
+        ${f.warnings?.length?html`<div style=${{background:"rgba(251,191,36,.08)",border:"1px solid rgba(251,191,36,.3)",borderRadius:6,padding:"5px 9px",marginTop:5,fontSize:11,color:"#fbbf24"}}>
+          ⚠️ ${f.warnings.length} colonne${f.warnings.length>1?"s":""} manquante${f.warnings.length>1?"s":""} : ${f.warnings.join(", ")}
+        </div>`:null}
       </div>`)}
     </div>`}
 
@@ -1772,6 +1946,7 @@ function App(){
         <select class="d-sel" value=${curP} onChange=${e=>{
           const p=e.target.value;
           setCurP(p);
+          setCurP2(null);
           const hasC=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="Cycle");
           const hasOS=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="OneShot");
           if(!hasC&&hasOS) setTab("t5");
@@ -1779,6 +1954,11 @@ function App(){
         }}>
           ${partenaires.map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
         </select>
+        ${curP!=="Tous"&&partenaires.filter(p=>p!=="Tous"&&p!==curP).length>0?html`<select class="d-sel" value=${curP2||""} onChange=${e=>setCurP2(e.target.value||null)} style=${{borderColor:curP2?C.purple:"",color:curP2?C.purple:""}}>
+          <option value="">vs. —</option>
+          ${partenaires.filter(p=>p!=="Tous"&&p!==curP).map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
+        </select>`:null}
+        <button class="d-btn" onClick=${()=>setSearchOpen(true)}>🔍</button>
         <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
         <button class="d-btn" onClick=${exportCSV}>📊 CSV</button>
         <button class="d-btn" onClick=${exportJSON}>💾 JSON</button>
@@ -1790,6 +1970,7 @@ function App(){
             <select class="d-sel" style=${{width:"100%",marginBottom:4}} value=${curP} onChange=${e=>{
               const p=e.target.value;
               setCurP(p);
+              setCurP2(null);
               const hasC=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="Cycle");
               const hasOS=data.some(d=>(p==="Tous"||(d.Partenaire||"").trim()===p)&&d.Mode==="OneShot");
               if(!hasC&&hasOS) setTab("t5");
@@ -1797,6 +1978,7 @@ function App(){
             }}>
               ${partenaires.map(p=>html`<option key=${p} value=${p}>${p}</option>`)}
             </select>
+            <button class="d-btn" onClick=${()=>{setMobMenu(false);setSearchOpen(true);}}>🔍 Recherche</button>
             <button class="d-btn" onClick=${printDash}>🖨️ PDF</button>
             <button class="d-btn" onClick=${exportCSV}>📊 Export CSV</button>
             <button class="d-btn" onClick=${exportJSON}>💾 Export JSON</button>
@@ -1814,16 +1996,21 @@ function App(){
     <div class="dct" ref=${dctRef} onTouchStart=${onTouchStart} onTouchEnd=${onTouchEnd}>
       ${tabs.map(([id])=>html`<div key=${id} class="pagesec" style=${{display:tab===id?"block":"none"}}>
         <${ErrorBoundary}>
-          ${id==="t1"&&html`<${P1} data=${data} curP=${curP}/>`}
+          ${id==="t1"&&html`<${P1} data=${data} curP=${curP} curP2=${curP2}/>`}
           ${id==="t2"&&html`<${P2} data=${data} curP=${curP}/>`}
           ${id==="t3"&&html`<${P3} data=${data} curP=${curP}/>`}
-          ${id==="t4"&&html`<${P4} data=${data} curP=${curP}/>`}
-          ${id==="t5"&&html`<${P5} data=${data} curP=${curP}/>`}
+          ${id==="t4"&&html`<${P4} data=${data} curP=${curP} preEmail=${tab==="t4"?globalSelectedEmail:null}/>`}
+          ${id==="t5"&&html`<${P5} data=${data} curP=${curP} preEmail=${tab==="t5"?globalSelectedEmail:null}/>`}
         <//>
       </div>`)}
     </div>
   </div>
-  ${toast?html`<div class=${"toast "+toast.type}>${toast.type==="err"?"✗":toast.type==="warn"?"⚠":"✓"} ${toast.msg}</div>`:null}`;
+  ${toast?html`<div class=${"toast "+toast.type}>${toast.type==="err"?"✗":toast.type==="warn"?"⚠":"✓"} ${toast.msg}</div>`:null}
+  ${searchOpen?html`<${GlobalSearch} data=${data} onClose=${()=>setSearchOpen(false)} onSelect=${(email,mode)=>{
+    setGlobalSelectedEmail(email);
+    setTab(mode==="Cycle"?"t4":"t5");
+    setSearchOpen(false);
+  }}/>`:null}`;
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
