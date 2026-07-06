@@ -158,15 +158,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .comp-fill{height:100%;border-radius:3px}
 .comp-pct{width:38px;text-align:right;font-weight:600}
 
+.print-only{display:none}
 @media print{
   body{background:#fff!important;color:#000!important}
-  .import,.dhdr,.dtabs,.d-btn,.d-right{display:none!important}
+  .import,.dhdr,.dtabs,.d-btn,.d-right,.no-print{display:none!important}
   .dash{display:block!important}
   .dct{padding:0;max-width:none}
   .pagesec{display:block!important;page-break-before:always}
   .pagesec:first-child{page-break-before:avoid}
   .gc,.kc{background:#fff!important;border:1px solid #ddd!important}
   .kv,.gt,.ph h2{color:#1a73e8!important}
+  .print-only{display:block!important}
+  .print-fiche{page-break-inside:avoid;border:1px solid #ddd;border-radius:6px;padding:10px;margin-bottom:10px}
   @page{size:A4;margin:12mm}
 }
 @media(max-width:640px){
@@ -1110,7 +1113,7 @@ function P5({data,curP}){
       <p>${curP==="Tous"?"Tous les partenaires":curP} · ${os.length} participant${os.length>1?"s":""} · Vue instantanée</p>
     </div>
 
-    <div class="fmode" style=${{marginBottom:16,maxWidth:300}}>
+    <div class="fmode no-print" style=${{marginBottom:16,maxWidth:300}}>
       <button class=${"fmode-btn cycle"+(vue==="groupe"?" on":"")} onClick=${()=>setVue("groupe")}>
         👥 Vue groupe
       </button>
@@ -1218,6 +1221,44 @@ function P5({data,curP}){
         <//>
       </div>
     `}
+
+    <!-- Fiches individuelles — visibles uniquement à l'impression -->
+    <div class="print-only" style=${{marginTop:16}}>
+      <div style=${{fontSize:13,fontWeight:700,borderBottom:"2px solid #1a73e8",paddingBottom:6,marginBottom:12,color:"#1a73e8"}}>
+        Fiches individuelles — ${os.length} participant${os.length>1?"s":""}
+      </div>
+      ${os.map((p,i)=>{
+        const ci=COMP_FIELDS.map(({c,f},j)=>({name:c,color:COMP_COLORS[j%COMP_COLORS.length],score:r100(p[f])}));
+        const jl=Object.entries(p.Jalons||{});
+        return html`<div key=${i} class="print-fiche">
+          <div style=${{fontWeight:700,fontSize:12,marginBottom:6}}>
+            👤 ${nomParticipant(p)}${curP==="Tous"?" · "+p.Partenaire:""}
+            <span style=${{fontWeight:400,fontSize:11,marginLeft:8,color:"#555"}}>
+              ${PLIB[p.Palier]} · Palier ${p.Palier}/3
+              ${p.Score_Global!=null?" · "+pct(p.Score_Global):" · Score non partagé"}
+              ${p.Date_Debut?" · "+fmtDate(p.Date_Debut):""}
+            </span>
+          </div>
+          ${jl.length?html`<div style=${{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+            ${jl.map(([name,val],k)=>html`<span key=${k} style=${{
+              border:"1px solid "+(val===true?"#34d399":val===false?"#f87171":"#aaa"),
+              color:val===true?"#059669":val===false?"#dc2626":"#666",
+              padding:"1px 7px",borderRadius:12,fontSize:10,fontWeight:600}}>
+              ${val===true?"✓":val===false?"✗":"?"} ${name}
+            </span>`)}
+          </div>`:null}
+          <div style=${{display:"flex",flexDirection:"column",gap:3}}>
+            ${ci.map((c,k)=>html`<div key=${k} style=${{display:"flex",alignItems:"center",gap:6,fontSize:10}}>
+              <span style=${{width:130,color:"#555",flexShrink:0}}>${c.name}</span>
+              <div style=${{flex:1,height:5,background:"#eee",borderRadius:3,overflow:"hidden"}}>
+                <div style=${{width:(c.score!=null?c.score:0)+"%",height:"100%",background:c.score!=null?c.color:"#eee",borderRadius:3}}/>
+              </div>
+              <span style=${{width:32,textAlign:"right",fontWeight:600,color:c.score!=null?c.color:"#aaa"}}>${c.score!=null?c.score+"%":"—"}</span>
+            </div>`)}
+          </div>
+        </div>`;
+      })}
+    </div>
   </div>`;
 }
 
