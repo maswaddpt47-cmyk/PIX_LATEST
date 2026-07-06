@@ -790,6 +790,7 @@ function KPI({label,value,sub,color=C.blue}){
 
 // ── PAGE 1 — Vue d'ensemble ────────────────────────────────────────────────
 function P1({data,curP}){
+  const [showTable,setShowTable]=useState(false);
   const {e1,e2,mE,mS,medE,medS,pr,prRel,nbProg,mD,survivorshipAlert,parts,barData,palData,palT2Data}=useMemo(()=>{
     const e1=filt(data,curP,"Entrée"),e2=filt(data,curP,"Sortie");
     const scoresE=nn(e1.map(d=>d.Score_Global)),scoresS=nn(e2.map(d=>d.Score_Global));
@@ -888,6 +889,45 @@ function P1({data,curP}){
         <//>
       </div>
     `:null}
+
+    <div style=${{marginTop:8}}>
+      <button class="tbl-toggle" onClick=${()=>setShowTable(v=>!v)}>
+        ${showTable?"▲ Masquer le tableau":"📋 Tableau récapitulatif participants"}
+      </button>
+      ${showTable?html`<div class="gc" style=${{overflowX:"auto"}}>
+        <table class="dt">
+          <thead><tr>
+            <th>Participant</th><th>Partenaire</th><th>Palier T1</th><th>Score T1</th>
+            ${e2.length?html`<th>Score T2</th><th>Progression</th>`:null}
+          </tr></thead>
+          <tbody>
+            ${e1.slice().sort((a,b)=>{
+              const aS=data.find(x=>x.Email===a.Email&&x.TypeCampagne==="Sortie");
+              const bS=data.find(x=>x.Email===b.Email&&x.TypeCampagne==="Sortie");
+              const aP=aS&&a?r100(aS.Score_Global-a.Score_Global):null;
+              const bP=bS&&b?r100(bS.Score_Global-b.Score_Global):null;
+              if(bP!=null&&aP!=null) return bP-aP;
+              if(bP!=null) return 1; if(aP!=null) return -1; return 0;
+            }).map((p,i)=>{
+              const s=data.find(x=>x.Email===p.Email&&x.TypeCampagne==="Sortie");
+              const prog=s&&p.Score_Global!=null&&s.Score_Global!=null?r100(s.Score_Global-p.Score_Global):null;
+              return html`<tr key=${i}>
+                <td style=${{fontWeight:500}}>${nomParticipant(p)}</td>
+                <td style=${{color:"var(--text2)",fontSize:11}}>${p.Partenaire}</td>
+                <td><span class="badge" style=${{background:"rgba(79,142,247,.15)",color:PCOL[p.Palier]}}>P${p.Palier} ${PLIB[p.Palier]}</span></td>
+                <td>${p.Score_Global!=null?pct(p.Score_Global):"—"}</td>
+                ${e2.length?html`
+                  <td style=${{color:s?C.green:"var(--text3)"}}>${s&&s.Score_Global!=null?pct(s.Score_Global):"—"}</td>
+                  <td style=${{color:prog!=null&&prog>0?C.green:prog!=null&&prog<0?C.red:"var(--text3)",fontWeight:600}}>
+                    ${prog!=null?(prog>0?"+":"")+prog+" pts":"—"}
+                  </td>
+                `:null}
+              </tr>`;
+            })}
+          </tbody>
+        </table>
+      </div>`:null}
+    </div>
   </div>`;
 }
 
@@ -1005,8 +1045,10 @@ function P3({data,curP}){
 
 // ── PAGE 4 — Fiche individuelle ──────────────────────────────────────────
 function P4({data,curP}){
-  const parts=filt(data,curP,"Entrée").slice().sort((a,b)=>nomParticipant(a).localeCompare(nomParticipant(b),"fr"));
-  const [email,setEmail]=useState(parts[0]?.Email||"");
+  const allParts=filt(data,curP,"Entrée").slice().sort((a,b)=>nomParticipant(a).localeCompare(nomParticipant(b),"fr"));
+  const [search,setSearch]=useState("");
+  const parts=allParts.filter(p=>!search||nomParticipant(p).toLowerCase().includes(search.toLowerCase())||p.Partenaire.toLowerCase().includes(search.toLowerCase()));
+  const [email,setEmail]=useState(allParts[0]?.Email||"");
   useEffect(()=>{
     const ps=filt(data,curP,"Entrée");
     if(ps.length&&!ps.find(p=>p.Email===email)) setEmail(ps[0]?.Email||"");
@@ -1030,12 +1072,16 @@ function P4({data,curP}){
     <div class="ph"><h2>Fiche individuelle</h2><p>Profil complet d'un participant</p></div>
     <div class="psel-w">
       <label>🔍 Sélectionner un participant</label>
+      <input class="srch" placeholder="Rechercher par nom ou partenaire…" value=${search} onInput=${e=>setSearch(e.target.value)}/>
       <select value=${email} onChange=${e=>setEmail(e.target.value)}>
-        ${parts.map(p=>html`<option key=${p.Email} value=${p.Email}>
+        ${parts.length?parts.map(p=>html`<option key=${p.Email} value=${p.Email}>
           ${nomParticipant(p)} — ${p.Partenaire}
-        </option>`)}
+        </option>`):html`<option disabled>Aucun résultat</option>`}
       </select>
     </div>
+    ${rowE&&!rowS?html`<div style=${{background:"rgba(251,191,36,.08)",border:"1px solid rgba(251,191,36,.3)",borderRadius:8,padding:"8px 14px",marginBottom:12,fontSize:12,color:"#fbbf24"}}>
+      ⏳ Ce participant n'a pas encore de T2 — les compétences ci-dessous correspondent uniquement au T1.
+    </div>`:null}
     ${rowE&&html`<div>
       <div class="krow">
         <${KPI} label="📋 Score T1" value=${pct(rowE.Score_Global)} sub=${"Palier "+rowE.Palier+"/3 · "+PLIB[rowE.Palier]+(rowE.Partenaire?" · "+rowE.Partenaire:"")} color=${PCOL[rowE.Palier]}/>
@@ -1121,6 +1167,7 @@ function P5({data,curP}){
   const osAvecScore=os.filter(d=>d.Score_Global!=null);
   const [email,setEmail]=useState(osAvecScore[0]?.Email||os[0]?.Email||"");
   const [vue,setVue]=useState("groupe");
+  const [searchOS,setSearchOS]=useState("");
   useEffect(()=>{
     const osFilt=data.filter(d=>d.Mode==="OneShot"&&(curP==="Tous"||normP(d.Partenaire)===normP(curP)));
     const osFiltScore=osFilt.filter(d=>d.Score_Global!=null);
@@ -1165,13 +1212,15 @@ function P5({data,curP}){
     ${vue==="individuel"?html`
       <div class="psel-w" style=${{marginBottom:10}}>
         <label>🔍 Sélectionner un participant</label>
+        <input class="srch" placeholder="Rechercher par nom ou partenaire…" value=${searchOS} onInput=${e=>setSearchOS(e.target.value)}/>
         <select style=${{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:7,
           color:"var(--text)",fontSize:12,padding:"7px 10px",width:"100%",maxWidth:440,
           outline:"none",fontFamily:"inherit"}}
           value=${email} onChange=${e=>setEmail(e.target.value)}>
-          ${os.map(p=>html`<option key=${p.Email} value=${p.Email}>
-            ${nomParticipant(p)} — ${PLIB[p.Palier]}${p.Score_Global==null?" ⚠ non partagé":""}${curP==="Tous"?" · "+p.Partenaire:""}
-          </option>`)}
+          ${os.filter(p=>!searchOS||nomParticipant(p).toLowerCase().includes(searchOS.toLowerCase())||p.Partenaire.toLowerCase().includes(searchOS.toLowerCase()))
+            .map(p=>html`<option key=${p.Email} value=${p.Email}>
+              ${nomParticipant(p)} — ${PLIB[p.Palier]}${p.Score_Global==null?" ⚠ non partagé":""}${curP==="Tous"?" · "+p.Partenaire:""}
+            </option>`)}
         </select>
       </div>
       ${rowOS?html`<div class="gc" style=${{marginBottom:14,borderLeft:"3px solid var(--purple)"}}>
