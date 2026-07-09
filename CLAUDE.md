@@ -36,6 +36,29 @@ Les modifications Claude se font sur la branche désignée en début de session 
 
 ---
 
+## 4. Tests unitaires — règle obligatoire
+
+| Fichier source | Fichier de tests | Runner |
+|---|---|---|
+| `utils.js` — fonctions bas niveau | `utils.test.js` | `node --test utils.test.js` |
+| `logic.js` — logique métier | `logic.test.js` | `node --test logic.test.js` |
+
+Ces fichiers sont chargés dans le navigateur (`<script src="utils.js">`, `<script src="logic.js">` dans `pix-analyser-v3-6.html`) ET testés sous Node.
+Une seule source de vérité — ne jamais dupliquer une fonction entre `utils.js`/`logic.js` et le fichier principal.
+
+Après toute modification de `utils.js` ou `logic.js` :
+1. Modifier la fonction
+2. Exécuter le runner correspondant
+3. Commiter source + tests ensemble si un test a été mis à jour
+
+Règles :
+- Bug corrigé → corriger le code, pas le test
+- Changement intentionnel → mettre à jour code ET test dans le même commit
+- Ne jamais supprimer un test pour faire passer le commit
+- La CI bloque le déploiement si un test échoue (job `test` dans `.github/workflows/deploy.yml`, prérequis du job `deploy`)
+
+---
+
 ## Récapitulatif du flux par session
 
 ```
